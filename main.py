@@ -145,6 +145,8 @@ def main() -> None:
         freeze_cell=freeze_cell,
         freeze_cell_per_sheet=freeze_cell_per_sheet if any(freeze_cell_per_sheet) else None,
         autofilter=xlsx_opts.get("autofilter", True),
+        column_width_mode=(xlsx_opts.get("column_width_mode") or "auto").strip().lower(),
+        auto_row_height=bool(xlsx_opts.get("auto_row_height", False)),
         column_widths=None,
         column_formats_per_sheet=column_formats_per_sheet if has_any_format else None,
         default_formats_per_sheet=default_formats_per_sheet if has_any_format else None,

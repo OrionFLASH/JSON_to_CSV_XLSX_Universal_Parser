@@ -57,7 +57,7 @@
         "decimal_separator": ",",
         "thousands_separator": " ",
         "date_format": "DD.MM.YYYY",
-        "header_horizontal_align": "left",
+        "header_horizontal_align": "center",
         "header_vertical_align": "center",
         "header_fg_color": "000000",
         "header_bg_color": "C6EFCE",

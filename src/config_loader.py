@@ -24,6 +24,8 @@ DEFAULT_CSV = {
 DEFAULT_XLSX = {
     "freeze_first_row": True,
     "autofilter": True,
+    "column_width_mode": "auto",
+    "auto_row_height": False,
 }
 
 
