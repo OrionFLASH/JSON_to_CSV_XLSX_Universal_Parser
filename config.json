@@ -1,0 +1,75 @@
+{
+  "__comments": {
+    "_": "Комментарии и варианты параметров (ключ __comments не используется программой).",
+    "input_dir": "Папка с входными JSON-файлами. Варианты: любая папка относительно корня проекта, например 'IN', 'input', 'data/json'.",
+    "output_dir": "Папка для CSV и XLSX. Варианты: 'OUT', 'output', 'export', 'result'.",
+    "input_files": "Список имён файлов (без пути) из input_dir. Варианты: один файл ['file.json'], несколько ['a.json','b.json'], массив из одного элемента для одного файла.",
+    "path_separator": "Разделитель между ключами в имени колонки. Варианты: ' - ' (по умолчанию), '|', '.', '__', '/'.",
+    "path_start": "Цепочка ключей, с которой начинать разбор (имена колонок и данные без префикса). Варианты: [] — от корня; ['data','body'] — колонки без 'data - body -'; ['results','item'] — для вложенных массивов.",
+    "exclude_keys": "Ключи или полные пути, не попадающие в выход. Варианты: по имени ключа ['photoData']; по пути ['colorCode - secondary']; несколько ['key1','key2'].",
+    "include_only_keys": "Если не пусто — в выход только эти колонки. Варианты: [] — все колонки (с учётом exclude_keys); ['firstName','lastName','employeeNumber'] — только перечисленные (имена после path_start).",
+    "csv_encoding": "Кодировка CSV. Варианты: 'utf-8-sig' (с BOM для Excel), 'utf-8', 'cp1251', 'latin-1'.",
+    "csv_delimiter": "Разделитель полей в CSV. Варианты: ';' (удобно для Excel в регионах с запятой в числах), ',', '\\t'.",
+    "csv_lineterminator": "Окончание строки. Варианты: '\\n' (Unix), '\\r\\n' (Windows).",
+    "xlsx_freeze_first_row": "Заморозить первую строку (заголовки). true | false. Учитывается, если не задан freeze_cell.",
+    "xlsx_freeze_cell": "Ячейка-граница закрепления по умолчанию для всех листов. Варианты: 'A2' — закрепить первую строку; 'B1' — первую колонку; 'B2' — строку и колонку; пусто — использовать freeze_first_row (при true = A2).",
+    "xlsx_freeze_pane_per_sheet": "Массив переопределений закрепления по листам: [ { \"sheet_index\": 0, \"cell\": \"B2\" }, { \"sheet_index\": 1, \"cell\": \"A2\" } ]. sheet_index — индекс листа (0, 1, …); cell — ячейка-граница. Для листа без записи используется freeze_cell.",
+    "xlsx_autofilter": "Включить автофильтр по первой строке. true | false.",
+    "xlsx_sheets_name": "Отображаемое имя листа в XLSX (до 31 символа). Варианты: 'Профили', 'Лист1', имя по файлу задаётся автоматически, если листов меньше чем файлов.",
+    "xlsx_sheets_columns": "Список колонок для листа (пусто = все). Обычно [].",
+    "xlsx_column_format": "Формат колонок на листе: объект { имя_колонки: { number_format: 'integer'|'float'|'text'|'date' } }. Реализовано: number_format: 'integer' — целое число. Отдельно указанные колонки переопределяют default_column_format.",
+    "xlsx_default_column_format": "Формат по умолчанию для всех колонок листа, если колонка не перечислена в column_format. Варианты: {} — не задан (поведение по умолчанию); { \"number_format\": \"text\" } — все колонки как текст; { \"number_format\": \"integer\" } — все как целое (отдельные переопределяются в column_format).",
+    "column_formats_options": "Справочник опций форматирования (align, цвета, width_min/max, wrap_text, number_format, float_decimals, date_format) — часть параметров пока только в описании, расширяемо."
+  },
+  "input_dir": "IN",
+  "output_dir": "OUT",
+  "input_files": [
+    "profiles_20260203-194146.json"
+  ],
+  "path_separator": " - ",
+  "path_start": ["data", "body"],
+  "exclude_keys": ["photoData"],
+  "include_only_keys": [],
+  "csv": {
+    "encoding": "utf-8-sig",
+    "delimiter": ";",
+    "lineterminator": "\n"
+  },
+  "xlsx": {
+    "freeze_first_row": true,
+    "freeze_cell": "A2",
+    "freeze_pane_per_sheet": [],
+    "autofilter": true,
+    "sheets": [
+      {
+        "name": "Профили",
+        "columns": [],
+        "default_column_format": { "number_format": "text" },
+        "column_format": {
+          "gosbCode": { "number_format": "integer" },
+          "groupingCode": { "number_format": "integer" },
+          "clusterCode": { "number_format": "integer" },
+          "tbCode": { "number_format": "integer" }
+        }
+      }
+    ]
+  },
+  "column_formats": {
+    "description": "Форматирование колонок: имя_колонки (путь ключей) -> параметры",
+    "options": {
+      "align": "left|center|right",
+      "header_fg_color": "RRGGBB",
+      "header_bg_color": "RRGGBB",
+      "data_fg_color": "RRGGBB",
+      "data_bg_color": "RRGGBB",
+      "width_min": 8,
+      "width_max": 50,
+      "wrap_text": true,
+      "number_format": "text|integer|float|date",
+      "float_decimals": 2,
+      "decimal_separator": ",",
+      "thousands_separator": " ",
+      "date_format": "DD.MM.YYYY"
+    }
+  }
+}
