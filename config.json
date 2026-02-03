@@ -50,8 +50,8 @@
         "columns": [],
         "default_column_format": {
         "number_format": "text",
-        "width_min": 10,
-        "width_max": 100,
+        "width_min": 15,
+        "width_max": 120,
         "wrap_text": true,
         "float_decimals": 2,
         "decimal_separator": ",",
