@@ -106,6 +106,65 @@ def _cell_value(v: Any) -> Tuple[str, str]:
     return "s", str(v)
 
 
+# Приблизительная ширина одного символа в единицах Excel (колонка); для автоподбора
+_CHAR_WIDTH_UNITS = 1.1
+
+
+def _column_auto_widths(
+    columns: List[str],
+    rows: List[Dict[str, Any]],
+    width_min: float,
+    width_max: float,
+    str_index: Dict[str, int],
+) -> List[float]:
+    """
+    Вычисляет ширину каждой колонки по содержимому (заголовок + ячейки).
+    Ограничивает width_min и width_max. Единицы — как в Excel (приблизительно символы).
+    """
+    widths: List[float] = []
+    for col_name in columns:
+        max_chars = len(col_name)
+        for row in rows:
+            val = row.get(col_name, "")
+            s = str(val) if val is not None else ""
+            max_chars = max(max_chars, len(s))
+        w = max(width_min, min(width_max, max_chars * _CHAR_WIDTH_UNITS + 1))
+        widths.append(round(w, 1))
+    return widths
+
+
+def _row_auto_heights(
+    columns: List[str],
+    rows: List[Dict[str, Any]],
+    header_row: List[str],
+    str_index: Dict[str, int],
+    wrap_text: bool,
+    default_height: float = 15.0,
+) -> List[Optional[float]]:
+    """
+    Вычисляет высоту каждой строки по содержимому (при wrap_text — по числу строк).
+    Возвращает список высот: [None] — не задавать, иначе [ht_row1, ht_row2, ...].
+    """
+    if not wrap_text:
+        return [None] * (1 + len(rows))
+    heights: List[Optional[float]] = []
+    # Строка заголовков
+    h_max = 1
+    for h in header_row:
+        lines = (h or "").count("\n") + 1
+        h_max = max(h_max, lines)
+    heights.append(max(default_height, h_max * default_height * 0.8))
+    for row in rows:
+        h_max = 1
+        for col_name in columns:
+            val = row.get(col_name, "")
+            s = str(val) if val is not None else ""
+            lines = s.count("\n") + 1
+            h_max = max(h_max, min(lines, 10))
+        heights.append(max(default_height, h_max * default_height * 0.8))
+    return heights
+
+
 def _to_integer_value(val: Any) -> Optional[float]:
     """Приводит значение к числу для отображения как целое (для формата integer в ячейке)."""
     if val is None or val == "":
@@ -126,6 +185,23 @@ def _to_integer_value(val: Any) -> Optional[float]:
             return None
 
 
+# Допустимые значения выравнивания в OOXML (SpreadsheetML)
+_HORIZONTAL_MAP = {"left": "left", "center": "center", "right": "right", "general": "general"}
+_VERTICAL_MAP = {"top": "top", "center": "center", "bottom": "bottom"}
+
+
+def _normalize_horizontal(value: Any) -> str:
+    """Приводит значение из конфига к OOXML horizontal: left | center | right | general."""
+    s = (value or "").strip().lower()
+    return _HORIZONTAL_MAP.get(s, "left")
+
+
+def _normalize_vertical(value: Any) -> str:
+    """Приводит значение из конфига к OOXML vertical: top | center | bottom."""
+    s = (value or "").strip().lower()
+    return _VERTICAL_MAP.get(s, "center")
+
+
 def write_xlsx(
     sheets_data: List[Tuple[str, List[Dict[str, Any]], List[str]]],
     out_path: Path,
@@ -134,6 +210,8 @@ def write_xlsx(
     freeze_cell: Optional[str] = None,
     freeze_cell_per_sheet: Optional[List[Optional[str]]] = None,
     autofilter: bool = True,
+    column_width_mode: str = "auto",
+    auto_row_height: bool = False,
     column_widths: Optional[Dict[str, float]] = None,
     column_formats_per_sheet: Optional[List[Dict[str, Dict[str, Any]]]] = None,
     default_formats_per_sheet: Optional[List[Dict[str, Any]]] = None,
@@ -141,12 +219,9 @@ def write_xlsx(
 ) -> None:
     """
     Записывает несколько листов в один XLSX.
-    sheets_data: список кортежей (имя_листа, строки, колонки).
-    freeze_cell: ячейка-граница закрепления по умолчанию для всех листов (например "A2" — закрепить первую строку).
-    freeze_cell_per_sheet: для каждого листа своя ячейка (переопределяет freeze_cell); null/отсутствие — использовать общую.
-    column_widths: опционально {имя_колонки: ширина}.
-    column_formats_per_sheet: для каждого листа словарь {имя_колонки: {number_format: "integer", ...}}.
-    default_formats_per_sheet: для каждого листа формат по умолчанию для всех колонок (если колонка не в column_format).
+    column_width_mode: "auto" — автоподбор в пределах width_min..width_max; "minimum"/"maximum" — фиксированная ширина.
+    auto_row_height: True — автоподбор высоты строк по содержимому (при wrap_text).
+    column_widths: опционально {имя_колонки: ширина} (если задано — перекрывает режим по колонкам).
     """
     log = logger or logging.getLogger(__name__)
     out_path = Path(out_path)
@@ -198,8 +273,12 @@ def write_xlsx(
         sheet_column_format: Optional[Dict[str, Dict[str, Any]]] = None,
         sheet_default_format: Optional[Dict[str, Any]] = None,
         sheet_freeze_cell: Optional[str] = None,
+        sheet_column_widths: Optional[List[float]] = None,
+        sheet_row_heights: Optional[List[Optional[float]]] = None,
+        header_style_idx: int = 0,
+        data_style_idx: int = 0,
     ) -> str:
-        """Собирает XML одного листа. Формат ячейки: column_format[col] или default_column_format. Закрепление: sheet_freeze_cell (граница)."""
+        """Собирает XML одного листа. header_style_idx — стиль первой строки; data_style_idx — стиль ячеек данных (0 = без стиля)."""
         root = ET.Element("worksheet", xmlns=ns)
         dim = f"A1:{_excel_col(len(columns) - 1)}{len(rows) + 1}"
         ET.SubElement(root, "dimension", ref=dim)
@@ -228,30 +307,58 @@ def write_xlsx(
         sheetFormatPr = ET.SubElement(root, "sheetFormatPr", defaultRowHeight="15")
         sheetData = ET.SubElement(root, "sheetData")
 
-        # Первая строка — заголовки (имена колонок)
-        row0 = ET.SubElement(sheetData, "row", r="1")
+        # Первая строка — заголовки (имена колонок); стиль заголовка если задан
+        row0_attrs = {"r": "1"}
+        if sheet_row_heights and len(sheet_row_heights) > 0 and sheet_row_heights[0] is not None:
+            row0_attrs["ht"] = str(round(sheet_row_heights[0], 2))
+            row0_attrs["customHeight"] = "1"
+        row0 = ET.SubElement(sheetData, "row", **row0_attrs)
         for col_idx, col_name in enumerate(columns):
-            c = ET.SubElement(row0, "c", r=_cell_ref(col_idx, 1), t="s")
+            c_attrs = {"r": _cell_ref(col_idx, 1), "t": "s"}
+            if header_style_idx > 0:
+                c_attrs["s"] = str(header_style_idx)
+            c = ET.SubElement(row0, "c", **c_attrs)
             v = ET.SubElement(c, "v")
             v.text = str(str_index.get(col_name, str_index.get(str(col_name), 0)))
         # Строки данных
         for row_idx, row in enumerate(rows):
-            r_el = ET.SubElement(sheetData, "row", r=str(row_idx + 2))
+            r_attrs = {"r": str(row_idx + 2)}
+            if sheet_row_heights and row_idx + 1 < len(sheet_row_heights) and sheet_row_heights[row_idx + 1] is not None:
+                r_attrs["ht"] = str(round(sheet_row_heights[row_idx + 1], 2))
+                r_attrs["customHeight"] = "1"
+            r_el = ET.SubElement(sheetData, "row", **r_attrs)
             for col_idx, col_name in enumerate(columns):
                 val = row.get(col_name, "")
                 col_fmt = (sheet_column_format or {}).get(col_name) or (sheet_default_format or {})
                 is_integer_format = use_integer_style and (col_fmt or {}).get("number_format") == "integer"
+                # Правило: если значение не преобразуется в указанный тип формата колонки — ячейка
+                # записывается как значение по умолчанию (текст) и со стилем по умолчанию/данных, не формата.
+                # Индекс стиля для ячейки данных: integer-стиль или общий стиль данных
+                cell_style_s = None
+                if is_integer_format and integer_style_idx > 0:
+                    cell_style_s = str(integer_style_idx)
+                elif data_style_idx > 0:
+                    cell_style_s = str(data_style_idx)
                 if is_integer_format:
                     num_val = _to_integer_value(val)
                     if num_val is not None:
-                        c = ET.SubElement(r_el, "c", r=_cell_ref(col_idx, row_idx + 2), t="n", s="1")
+                        # Успешное преобразование — записываем число со стилем integer
+                        c_attrs = {"r": _cell_ref(col_idx, row_idx + 2), "t": "n"}
+                        if cell_style_s:
+                            c_attrs["s"] = cell_style_s
+                        c = ET.SubElement(r_el, "c", **c_attrs)
                         v = ET.SubElement(c, "v")
                         v.text = str(int(num_val) if num_val == int(num_val) else num_val)
                     else:
+                        # Преобразование в указанный тип не удалось — оставляем значение по умолчанию (текст)
+                        # Стиль ячейки: не integer, а стиль по умолчанию (0) или общий стиль данных
                         cell_type, cell_val = _cell_value(val)
                         if cell_type == "s":
                             cell_val = str(str_index.get(cell_val, 0))
-                        c = ET.SubElement(r_el, "c", r=_cell_ref(col_idx, row_idx + 2), t=cell_type)
+                        c_attrs = {"r": _cell_ref(col_idx, row_idx + 2), "t": cell_type}
+                        if data_style_idx > 0:
+                            c_attrs["s"] = str(data_style_idx)
+                        c = ET.SubElement(r_el, "c", **c_attrs)
                         v = ET.SubElement(c, "v")
                         v.text = cell_val
                 else:
@@ -259,7 +366,10 @@ def write_xlsx(
                     if cell_type == "s":
                         idx = str_index.get(cell_val, 0)
                         cell_val = str(idx)
-                    c = ET.SubElement(r_el, "c", r=_cell_ref(col_idx, row_idx + 2), t=cell_type)
+                    c_attrs = {"r": _cell_ref(col_idx, row_idx + 2), "t": cell_type}
+                    if cell_style_s:
+                        c_attrs["s"] = cell_style_s
+                    c = ET.SubElement(r_el, "c", **c_attrs)
                     v = ET.SubElement(c, "v")
                     v.text = cell_val
 
@@ -279,9 +389,12 @@ def write_xlsx(
         cols_el = ET.SubElement(root, "cols")
         for col_idx in range(len(columns)):
             w = 12.0
-            if column_widths and columns[col_idx] in column_widths:
+            if sheet_column_widths and col_idx < len(sheet_column_widths):
+                w = sheet_column_widths[col_idx]
+            elif column_widths and columns[col_idx] in column_widths:
                 w = max(0, min(column_widths[columns[col_idx]], 255))
-            ET.SubElement(cols_el, "col", min=str(col_idx + 1), max=str(col_idx + 1), width=str(w), customWidth="1")
+            w = max(0, min(float(w), 255))
+            ET.SubElement(cols_el, "col", min=str(col_idx + 1), max=str(col_idx + 1), width=str(round(w, 1)), customWidth="1")
         root.remove(cols_el)
         idx_sf = list(root).index(sheetFormatPr)
         root.insert(idx_sf + 1, cols_el)
@@ -291,8 +404,125 @@ def write_xlsx(
 
     # Ячейка закрепления по умолчанию: freeze_cell или при freeze_first_row — "A2"
     default_freeze = (freeze_cell or "").strip() or ("A2" if freeze_first_row else "")
+    width_mode = (column_width_mode or "auto").strip().lower()
+    if width_mode not in ("auto", "minimum", "maximum"):
+        width_mode = "auto"
+    # Стили: строим до цикла по листам, чтобы знать индексы для заголовка и данных
+    df0 = (default_formats_per_sheet or [{}])[0] if default_formats_per_sheet else {}
+    header_style = bool(
+        df0.get("header_bold")
+        or (df0.get("header_fg_color") or "").strip()
+        or (df0.get("header_bg_color") or "").strip()
+    )
+    data_style_needed = bool(
+        (df0.get("data_horizontal_align") or df0.get("data_vertical_align") or df0.get("wrap_text"))
+        or (df0.get("data_fg_color") or "").strip()
+        or (df0.get("data_bg_color") or "").strip()
+    )
+    # Сборка styles.xml до цикла по листам, чтобы получить индексы стилей
+    header_fg = "000000"
+    header_bg = "C6EFCE"
+    if default_formats_per_sheet and len(default_formats_per_sheet) > 0:
+        df = default_formats_per_sheet[0] or {}
+        if (df.get("header_fg_color") or "").strip():
+            header_fg = (df.get("header_fg_color") or "").strip().lstrip("#")[:6]
+        if (df.get("header_bg_color") or "").strip():
+            header_bg = (df.get("header_bg_color") or "").strip().lstrip("#")[:6]
+        if (df.get("data_fg_color") or "").strip():
+            data_fg = (df.get("data_fg_color") or "").strip().lstrip("#")[:6]
+        else:
+            data_fg = "000000"
+        if (df.get("data_bg_color") or "").strip():
+            data_bg = (df.get("data_bg_color") or "").strip().lstrip("#")[:6]
+        else:
+            data_bg = ""
+    else:
+        data_fg = "000000"
+        data_bg = ""
+    # Выравнивание из конфига (заголовок и данные)
+    h_hor = _normalize_horizontal(df0.get("header_horizontal_align"))
+    h_ver = _normalize_vertical(df0.get("header_vertical_align"))
+    d_hor = _normalize_horizontal(df0.get("data_horizontal_align"))
+    d_ver = _normalize_vertical(df0.get("data_vertical_align"))
+    wrap_text = bool(df0.get("wrap_text", False))
+    # Шрифты: 0=обычный, 1=жирный заголовок, 2=данные (опционально с цветом)
+    fonts_parts = ['<font/>', '<font><b/><color rgb="FF' + header_fg.upper() + '"/></font>']
+    if data_style_needed and (data_fg != "000000" or data_bg or df0.get("data_bold") or df0.get("data_italic")):
+        font_data = "<font>"
+        if df0.get("data_bold"):
+            font_data += "<b/>"
+        if df0.get("data_italic"):
+            font_data += "<i/>"
+        if data_fg and data_fg != "000000":
+            font_data += '<color rgb="FF' + data_fg.upper() + '"/>'
+        font_data += "</font>"
+        fonts_parts.append(font_data)
+    fonts_count = len(fonts_parts)
+    fonts_xml = "<fonts count=\"" + str(fonts_count) + "\">" + "".join(fonts_parts) + "</fonts>"
+    # Заливки: 0=none, 1=gray125, 2=заголовок, 3=данные (если задана)
+    fills_parts = [
+        "<fill><patternFill patternType=\"none\"/></fill>",
+        "<fill><patternFill patternType=\"gray125\"/></fill>",
+        '<fill><patternFill patternType="solid"><fgColor rgb="FF' + header_bg.upper() + '"/></patternFill></fill>',
+    ]
+    if data_style_needed and data_bg:
+        fills_parts.append('<fill><patternFill patternType="solid"><fgColor rgb="FF' + data_bg.upper() + '"/></patternFill></fill>')
+    fills_count = len(fills_parts)
+    fills_xml = "<fills count=\"" + str(fills_count) + "\">" + "".join(fills_parts) + "</fills>"
+    borders_xml = '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    # cellXfs: 0=по умолчанию, 1=integer (если нужен), 2=заголовок (если нужен), 3=данные (если нужен)
+    xfs_list: List[str] = []
+    idx = 0
+    xfs_list.append('<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>')
+    idx += 1
+    if use_integer_style:
+        integer_style_idx = idx
+        # Стиль «целое число»: при необходимости добавляем выравнивание как у данных
+        if data_style_needed:
+            xfs_list.append(
+                '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
+                '<alignment horizontal="' + d_hor + '" vertical="' + d_ver + '" wrapText="' + ("1" if wrap_text else "0") + '"/>'
+                "</xf>"
+            )
+        else:
+            xfs_list.append('<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0"/>')
+        idx += 1
+    else:
+        integer_style_idx = 0
+    if header_style:
+        style_header_idx = idx
+        xfs_list.append(
+            '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1">'
+            '<alignment horizontal="' + h_hor + '" vertical="' + h_ver + '"/>'
+            "</xf>"
+        )
+        idx += 1
+    else:
+        style_header_idx = 0
+    if data_style_needed:
+        style_data_idx = idx
+        # Шрифт данных: индекс 2 только если добавлен третий шрифт (data_fg/bold/italic)
+        font_id_data = "2" if fonts_count >= 3 else "0"
+        fill_id_data = "3" if (data_bg and fills_count >= 4) else "0"
+        xfs_list.append(
+            '<xf numFmtId="0" fontId="' + font_id_data + '" fillId="' + fill_id_data + '" borderId="0" xfId="0" applyAlignment="1">'
+            '<alignment horizontal="' + d_hor + '" vertical="' + d_ver + '" wrapText="' + ("1" if wrap_text else "0") + '"/>'
+            "</xf>"
+        )
+        idx += 1
+    else:
+        style_data_idx = 0
+    cellxfs_str = "".join(xfs_list)
+    styles_xml_pre = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  """ + fonts_xml + """
+  """ + fills_xml + """
+  """ + borders_xml + """
+  <cellXfs count=\"""" + str(len(xfs_list)) + "\">" + cellxfs_str + """</cellXfs>
+</styleSheet>"""
+
     # Генерация XML для каждого листа
-    sheet_xmls: List[str] = []
+    sheet_xmls = []
     for sheet_idx, (name, rows, columns) in enumerate(sheets_data):
         sheet_cf = column_formats_per_sheet[sheet_idx] if column_formats_per_sheet and sheet_idx < len(column_formats_per_sheet) else None
         sheet_def = default_formats_per_sheet[sheet_idx] if default_formats_per_sheet and sheet_idx < len(default_formats_per_sheet) else None
@@ -301,7 +531,35 @@ def write_xlsx(
             sheet_freeze = (freeze_cell_per_sheet[sheet_idx] or "").strip()
         elif default_freeze:
             sheet_freeze = default_freeze
-        sheet_xmls.append(make_worksheet_xml(name, rows, columns, sheet_idx, sheet_column_format=sheet_cf, sheet_default_format=sheet_def, sheet_freeze_cell=sheet_freeze))
+        # Ширина колонок по режиму (width_min/width_max из default_column_format листа)
+        def_fmt = sheet_def or {}
+        w_min = float(def_fmt.get("width_min", 8))
+        w_max = float(def_fmt.get("width_max", 50))
+        w_min = max(0, min(w_min, 255))
+        w_max = max(0, min(w_max, 255))
+        if w_min > w_max:
+            w_min, w_max = w_max, w_min
+        sheet_column_widths = None
+        if columns:
+            if width_mode == "auto":
+                sheet_column_widths = _column_auto_widths(columns, rows, w_min, w_max, str_index)
+            elif width_mode == "minimum":
+                sheet_column_widths = [w_min] * len(columns)
+            else:
+                sheet_column_widths = [w_max] * len(columns)
+        # Автовысота строк (при включении и при wrap_text в формате)
+        wrap = bool(def_fmt.get("wrap_text", False))
+        sheet_row_heights = None
+        if auto_row_height and (rows or columns):
+            header_row = list(columns)
+            sheet_row_heights = _row_auto_heights(columns, rows, header_row, str_index, wrap)
+        sheet_xmls.append(make_worksheet_xml(
+            name, rows, columns, sheet_idx,
+            sheet_column_format=sheet_cf, sheet_default_format=sheet_def, sheet_freeze_cell=sheet_freeze,
+            sheet_column_widths=sheet_column_widths, sheet_row_heights=sheet_row_heights,
+            header_style_idx=style_header_idx,
+            data_style_idx=style_data_idx,
+        ))
     log.debug("Сформировано листов: %s [def: write_xlsx]", len(sheet_xmls))
 
     # Связи workbook: листы, sharedStrings, styles
@@ -359,23 +617,8 @@ def write_xlsx(
     ])
     content_types = "\n".join(content_types_parts)
 
-    # styles.xml: при формате integer добавляем второй стиль с numFmtId="1" (целое число)
-    if use_integer_style:
-        styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="1"><font/></fonts>
-  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-  <cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
-</styleSheet>"""
-    else:
-        styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="1"><font/></fonts>
-  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
-</styleSheet>"""
+    # Используем стили, собранные выше (styles_xml_pre)
+    styles_xml = styles_xml_pre
 
     docProps_core = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">

@@ -13,13 +13,15 @@
     "csv_lineterminator": "Окончание строки. Варианты: '\\n' (Unix), '\\r\\n' (Windows).",
     "xlsx_freeze_first_row": "Заморозить первую строку (заголовки). true | false. Учитывается, если не задан freeze_cell.",
     "xlsx_freeze_cell": "Ячейка-граница закрепления по умолчанию для всех листов. Варианты: 'A2' — закрепить первую строку; 'B1' — первую колонку; 'B2' — строку и колонку; пусто — использовать freeze_first_row (при true = A2).",
+    "xlsx_column_width_mode": "Режим ширины колонок: auto — автоподбор в пределах width_min..width_max; minimum — всегда width_min; maximum — всегда width_max.",
+    "xlsx_auto_row_height": "Автоподбор высоты строк по содержимому. true | false.",
     "xlsx_freeze_pane_per_sheet": "Массив переопределений закрепления по листам: [ { \"sheet_index\": 0, \"cell\": \"B2\" }, { \"sheet_index\": 1, \"cell\": \"A2\" } ]. sheet_index — индекс листа (0, 1, …); cell — ячейка-граница. Для листа без записи используется freeze_cell.",
     "xlsx_autofilter": "Включить автофильтр по первой строке. true | false.",
     "xlsx_sheets_name": "Отображаемое имя листа в XLSX (до 31 символа). Варианты: 'Профили', 'Лист1', имя по файлу задаётся автоматически, если листов меньше чем файлов.",
     "xlsx_sheets_columns": "Список колонок для листа (пусто = все). Обычно [].",
-    "xlsx_column_format": "Формат колонок на листе: объект { имя_колонки: { number_format: 'integer'|'float'|'text'|'date' } }. Реализовано: number_format: 'integer' — целое число. Отдельно указанные колонки переопределяют default_column_format.",
-    "xlsx_default_column_format": "Формат по умолчанию для всех колонок листа, если колонка не перечислена в column_format. Варианты: {} — не задан (поведение по умолчанию); { \"number_format\": \"text\" } — все колонки как текст; { \"number_format\": \"integer\" } — все как целое (отдельные переопределяются в column_format).",
-    "column_formats_options": "Справочник опций форматирования (align, цвета, width_min/max, wrap_text, number_format, float_decimals, date_format) — часть параметров пока только в описании, расширяемо."
+    "xlsx_column_format": "Формат колонок на листе: объект { имя_колонки: { number_format, … } }. Применяется: number_format 'integer' — целое число. Если значение не преобразуется в указанный тип (например в колонке integer — текст), ячейка записывается по умолчанию (текст) и со стилем по умолчанию.",
+    "xlsx_default_column_format": "Формат по умолчанию для всех колонок листа. Заголовок (первая строка): header_horizontal_align, header_vertical_align, header_fg_color, header_bg_color, header_bold, header_italic, header_underline. Данные (ячейки): data_horizontal_align, data_vertical_align, data_fg_color, data_bg_color, data_bold, data_italic, data_underline. Общие: number_format, width_min, width_max, wrap_text, float_decimals, decimal_separator, thousands_separator, date_format.",
+    "column_formats_options": "Справочник опций форматирования. Применяются в XLSX: number_format (integer); width_min, width_max; выравнивание и стили заголовка (header_horizontal_align, header_vertical_align, header_fg_color, header_bg_color, header_bold, header_italic); выравнивание и стили данных (data_*); wrap_text при auto_row_height. Зарезервированы: float_decimals, date_format, header_underline, data_underline."
   },
   "input_dir": "IN",
   "output_dir": "OUT",
@@ -28,7 +30,7 @@
   ],
   "path_separator": " - ",
   "path_start": ["data", "body"],
-  "exclude_keys": ["photoData"],
+  "exclude_keys": ["photoData", "reactions", "colorCode", "isSuperUser", "source"],
   "include_only_keys": [],
   "csv": {
     "encoding": "utf-8-sig",
@@ -39,37 +41,72 @@
     "freeze_first_row": true,
     "freeze_cell": "A2",
     "freeze_pane_per_sheet": [],
+    "column_width_mode": "auto",
+    "auto_row_height": false,
     "autofilter": true,
     "sheets": [
       {
         "name": "Профили",
         "columns": [],
-        "default_column_format": { "number_format": "text" },
+        "default_column_format": {
+        "number_format": "text",
+        "width_min": 10,
+        "width_max": 100,
+        "wrap_text": true,
+        "float_decimals": 2,
+        "decimal_separator": ",",
+        "thousands_separator": " ",
+        "date_format": "DD.MM.YYYY",
+        "header_horizontal_align": "left",
+        "header_vertical_align": "center",
+        "header_fg_color": "000000",
+        "header_bg_color": "C6EFCE",
+        "header_bold": true,
+        "header_italic": false,
+        "header_underline": false,
+        "data_horizontal_align": "left",
+        "data_vertical_align": "center",
+        "data_fg_color": "000000",
+        "data_bg_color": "",
+        "data_bold": false,
+        "data_italic": false,
+        "data_underline": false
+      },
         "column_format": {
           "gosbCode": { "number_format": "integer" },
           "groupingCode": { "number_format": "integer" },
           "clusterCode": { "number_format": "integer" },
+          "reactionCount": { "number_format": "integer" },
           "tbCode": { "number_format": "integer" }
         }
       }
     ]
   },
   "column_formats": {
-    "description": "Форматирование колонок: имя_колонки (путь ключей) -> параметры",
+    "description": "Форматирование колонок: в default_column_format и column_format задаются параметры по имени колонки (или по умолчанию для листа). Применяются в XLSX: number_format, width_min/max, заголовок (header_*), wrap_text при auto_row_height.",
     "options": {
-      "align": "left|center|right",
-      "header_fg_color": "RRGGBB",
-      "header_bg_color": "RRGGBB",
-      "data_fg_color": "RRGGBB",
-      "data_bg_color": "RRGGBB",
-      "width_min": 8,
-      "width_max": 50,
-      "wrap_text": true,
-      "number_format": "text|integer|float|date",
-      "float_decimals": 2,
+      "header_horizontal_align": "left|center|right — выравнивание заголовка по горизонтали (применяется)",
+      "header_vertical_align": "top|center|bottom — выравнивание заголовка по вертикали (применяется)",
+      "data_horizontal_align": "left|center|right — выравнивание данных по горизонтали (применяется)",
+      "data_vertical_align": "top|center|bottom — выравнивание данных по вертикали (применяется)",
+      "header_fg_color": "RRGGBB — цвет текста заголовка (применяется), пусто — по умолчанию",
+      "header_bg_color": "RRGGBB — заливка заголовка (применяется), например C6EFCE — светло-салатовый",
+      "data_fg_color": "RRGGBB — цвет текста в ячейках данных (применяется)",
+      "data_bg_color": "RRGGBB — заливка ячеек данных, пусто — без заливки (применяется)",
+      "header_bold": "true|false — жирный заголовок (применяется)",
+      "header_italic": "true|false — курсив заголовка (применяется)",
+      "header_underline": "true|false — подчёркивание заголовка (зарезервировано)",
+      "data_bold": "true|false — жирный текст в данных (применяется)",
+      "data_italic": "true|false — курсив в данных (применяется)",
+      "data_underline": "true|false — подчёркивание в данных (зарезервировано)",
+      "width_min": "минимальная ширина колонки; используется при column_width_mode auto|minimum (применяется)",
+      "width_max": "максимальная ширина колонки; используется при column_width_mode auto|maximum (применяется)",
+      "wrap_text": "true|false — перенос по словам; при auto_row_height влияет на расчёт высоты строк (применяется)",
+      "number_format": "text|integer|float|date — тип данных; integer применяется в XLSX",
+      "float_decimals": "число знаков после запятой (зарезервировано)",
       "decimal_separator": ",",
       "thousands_separator": " ",
-      "date_format": "DD.MM.YYYY"
+      "date_format": "DD.MM.YYYY (зарезервировано)"
     }
   }
 }
