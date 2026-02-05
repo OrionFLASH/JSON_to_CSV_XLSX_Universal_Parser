@@ -3,7 +3,16 @@
     "_": "Комментарии и варианты параметров (ключ __comments не используется программой).",
     "input_dir": "Папка с входными JSON-файлами. Варианты: любая папка относительно корня проекта, например 'IN', 'input', 'data/json'.",
     "output_dir": "Папка для CSV и XLSX. Варианты: 'OUT', 'output', 'export', 'result'.",
-    "input_files": "Список имён файлов (без пути) из input_dir. Варианты: один файл ['file.json'], несколько ['a.json','b.json'], массив из одного элемента для одного файла.",
+    "input_files": "Список имён файлов (без пути) из input_dir. Используется, если не задан files. Варианты: ['file.json'], ['a.json','b.json'].",
+    "files": "Опционально. Массив настроек по файлам: каждый элемент — { file, sheet_name?, output?, path_start?, path_starts?, exclude_keys?, exclude_keys_in_path?, column_order? }. Если задан — список файлов из files[].file.",
+    "files_file": "В files[]: имя файла из input_dir (обязательно).",
+    "files_sheet_name": "В files[]: имя листа в XLSX (до 31 символа); если не задано — из имени файла.",
+    "files_output": "В files[]: ['csv'], ['xlsx'] или ['csv','xlsx'] — что создавать для этого файла.",
+    "files_path_start": "В files[]: цепочка ключей для старта (переопределяет глобальный path_start).",
+    "files_path_starts": "В files[]: несколько цепочек: первая — источник строк, остальные мержатся в строку с префиксом, напр. [['data','body'],['data','body','absences']].",
+    "files_exclude_keys": "В files[]: исключаемые ключи для этого файла.",
+    "files_exclude_keys_in_path": "В files[]: массив [{ \"path\": \"full\", \"keys\": [\"info\"] }] — исключать ключи только внутри пути.",
+    "files_column_order": "В files[]: массив имён колонок — порядок на листе (сначала эти, затем остальные).",
     "path_separator": "Разделитель между ключами в имени колонки. Варианты: ' - ' (по умолчанию), '|', '.', '__', '/'.",
     "path_start": "Цепочка ключей, с которой начинать разбор (имена колонок и данные без префикса). Варианты: [] — от корня; ['data','body'] — колонки без 'data - body -'; ['results','item'] — для вложенных массивов.",
     "exclude_keys": "Ключи или полные пути, не попадающие в выход. Варианты: по имени ключа ['photoData']; по пути ['colorCode - secondary']; несколько ['key1','key2'].",
@@ -25,13 +34,28 @@
   },
   "input_dir": "IN",
   "output_dir": "OUT",
-  "input_files": [
-    "profiles_20260203-194146.json"
-  ],
   "path_separator": " - ",
   "path_start": ["data", "body"],
   "exclude_keys": ["photoData", "reactions", "colorCode", "isSuperUser", "source"],
   "include_only_keys": [],
+  "files": [
+    {
+      "file": "profiles_20260203-194146.json",
+      "sheet_name": "Профили",
+      "output": ["xlsx"],
+      "path_start": ["data", "body"],
+      "exclude_keys": ["photoData", "reactions", "colorCode", "isSuperUser", "source"],
+      "column_order": []
+    },
+    {
+      "file": "profiles_20260203.json",
+      "sheet_name": "PROF1",
+      "output": ["xlsx"],
+      "path_start": ["data", "body"],
+      "exclude_keys": ["photoData", "reactions", "colorCode", "isSuperUser", "source"],
+      "column_order": []
+    }
+  ],
   "csv": {
     "encoding": "utf-8-sig",
     "delimiter": ";",
@@ -72,6 +96,41 @@
         "data_italic": false,
         "data_underline": false
       },
+        "column_format": {
+          "gosbCode": { "number_format": "integer" },
+          "groupingCode": { "number_format": "integer" },
+          "clusterCode": { "number_format": "integer" },
+          "reactionCount": { "number_format": "integer" },
+          "tbCode": { "number_format": "integer" }
+        }
+      },
+      {
+        "name": "PROF1",
+        "columns": [],
+        "default_column_format": {
+          "number_format": "text",
+          "width_min": 15,
+          "width_max": 120,
+          "wrap_text": true,
+          "float_decimals": 2,
+          "decimal_separator": ",",
+          "thousands_separator": " ",
+          "date_format": "DD.MM.YYYY",
+          "header_horizontal_align": "center",
+          "header_vertical_align": "center",
+          "header_fg_color": "000000",
+          "header_bg_color": "C6EFCE",
+          "header_bold": true,
+          "header_italic": false,
+          "header_underline": false,
+          "data_horizontal_align": "left",
+          "data_vertical_align": "center",
+          "data_fg_color": "000000",
+          "data_bg_color": "",
+          "data_bold": false,
+          "data_italic": false,
+          "data_underline": false
+        },
         "column_format": {
           "gosbCode": { "number_format": "integer" },
           "groupingCode": { "number_format": "integer" },

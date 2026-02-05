@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Точка входа: универсальный парсер JSON в CSV и XLSX.
-Читает config.json (список файлов в input_files), обрабатывает каждый файл из IN,
+Читает config.json (список файлов в files), обрабатывает каждый файл из IN,
 пишет CSV по одному на файл в OUT и один общий XLSX с листом на каждый файл.
 Логирование: INFO — основные этапы, DEBUG — детали (список файлов, режим пула и т.д.).
 """
@@ -27,19 +27,21 @@ def _process_one_file_standalone(
     json_path_str: str,
     base_dir_str: str,
     config: Dict[str, Any],
+    file_index: int = 0,
 ) -> Tuple[str, List[Dict[str, Any]], List[str]]:
     """
     Обёртка для вызова из дочернего процесса (должна быть на уровне модуля для pickle).
-    Возвращает (имя_листа, строки, колонки). Запись CSV выполняется внутри worker.
+    Возвращает (имя_листа, строки, колонки). Запись CSV выполняется внутри worker при output "csv".
+    file_index — индекс файла для настроек config.files[file_index].
     """
     json_path = Path(json_path_str)
     base_dir = Path(base_dir_str)
-    # В дочернем процессе логгер может быть не настроен — добавляем NullHandler
     log = logging.getLogger("json_parser.worker")
     if not log.handlers:
         log.addHandler(logging.NullHandler())
-    _, rows, columns, _ = worker.process_one_file(json_path, base_dir, config, logger=log)
-    sheet_name = json_path.stem[:31].replace("\\", "_").replace("/", "_").replace("*", "_").replace("?", "_")
+    sheet_name, rows, columns, _ = worker.process_one_file(
+        json_path, base_dir, config, file_index=file_index, logger=log
+    )
     return sheet_name, rows, columns
 
 
@@ -54,15 +56,14 @@ def main() -> None:
     config = config_loader.load_config(base_dir / "config.json")
     input_dir = Path(config["input_dir"])
     output_dir = Path(config["output_dir"])
-    input_files = config.get("input_files") or []
-    path_sep = config.get("path_separator", " - ")
+    file_names = config_loader.get_files_list(config)
     # Таймштамп для имён выходных файлов (год, месяц, день — час, минуты)
     run_timestamp = datetime.now().strftime(OUTPUT_TIMESTAMP_FMT)
     config["_run_timestamp"] = run_timestamp
-    log.debug("Конфиг загружен: input_dir=%s, output_dir=%s, файлов в списке=%s, таймштамп=%s [def: main]", input_dir, output_dir, len(input_files), run_timestamp)
+    log.debug("Конфиг загружен: input_dir=%s, output_dir=%s, файлов в списке=%s, таймштамп=%s [def: main]", input_dir, output_dir, len(file_names), run_timestamp)
 
-    if not input_files:
-        log.warning("В конфиге не заданы input_files; завершение [def: main]")
+    if not file_names:
+        log.warning("В конфиге не заданы files или список пуст; завершение [def: main]")
         return
 
     in_dir_abs = base_dir / input_dir
@@ -70,14 +71,16 @@ def main() -> None:
         log.error("Папка входных файлов не найдена: %s [def: main]", in_dir_abs)
         return
 
-    # Формируем список существующих файлов по именам из конфига
-    to_process: List[Path] = []
-    for name in input_files:
+    # Формируем список существующих файлов по именам из config.files (с индексом для настроек по файлу)
+    to_process: List[Tuple[Path, int]] = []
+    for idx, name in enumerate(file_names):
         p = in_dir_abs / name
         if p.is_file():
-            to_process.append(p)
+            to_process.append((p, idx))
         else:
             log.warning("Файл из конфига не найден: %s [def: main]", p)
+    if len(to_process) < len(file_names):
+        log.info("В конфиге файлов: %s, найдено в %s: %s [def: main]", len(file_names), input_dir, len(to_process))
     log.debug("К обработке подготовлено файлов: %s [def: main]", len(to_process))
 
     if not to_process:
@@ -88,27 +91,36 @@ def main() -> None:
 
     # Решаем: параллельная обработка (пул процессов) или последовательная
     max_workers = max(1, min(multiprocessing.cpu_count() - 1, len(to_process)))
-    sheets_data: List[Tuple[str, List[Dict[str, Any]], List[str]]] = []
+    results: List[Tuple[str, List[Dict[str, Any]], List[str]]] = []
 
     if max_workers >= 2 and len(to_process) > 1:
         log.debug("Запуск пула процессов: workers=%s [def: main]", max_workers)
         with multiprocessing.Pool(processes=max_workers) as pool:
             args = [
-                (str(p), str(base_dir), config)
-                for p in to_process
+                (str(p), str(base_dir), config, file_index)
+                for p, file_index in to_process
             ]
             results = pool.starmap(_process_one_file_standalone, args)
-        sheets_data = list(results)
         log.info("Параллельная обработка завершена, процессов: %s [def: main]", max_workers)
     else:
         log.debug("Последовательная обработка (один файл или один воркер) [def: main]")
-        for p in to_process:
+        for p, file_index in to_process:
             try:
-                sheet_name, rows, columns = _process_one_file_standalone(str(p), str(base_dir), config)
-                sheets_data.append((sheet_name, rows, columns))
+                res = _process_one_file_standalone(str(p), str(base_dir), config, file_index)
+                results.append(res)
             except Exception as e:
                 log.exception("Ошибка при обработке %s: %s [def: main]", p.name, e)
                 raise
+
+    # В XLSX только листы, для которых в настройках файла указан output "xlsx"
+    sheets_data: List[Tuple[str, List[Dict[str, Any]], List[str]]] = []
+    sheet_file_indices: List[int] = []
+    for i, (sheet_name, rows, columns) in enumerate(results):
+        file_index = to_process[i][1]
+        opts = config_loader.get_file_options(config, file_index, sheet_name)
+        if "xlsx" in opts.get("output", ["csv", "xlsx"]):
+            sheets_data.append((sheet_name, rows, columns))
+            sheet_file_indices.append(file_index)
 
     if not sheets_data:
         log.warning("Нет данных для XLSX [def: main]")
@@ -121,7 +133,8 @@ def main() -> None:
     # default_column_format — формат по умолчанию для всех колонок, кроме перечисленных в column_format
     column_formats_per_sheet: List[Dict[str, Dict[str, Any]]] = []
     default_formats_per_sheet: List[Dict[str, Any]] = []
-    for file_index in range(len(sheets_data)):
+    for j in range(len(sheets_data)):
+        file_index = sheet_file_indices[j] if j < len(sheet_file_indices) else j
         sheet_opts = config_loader.get_sheet_options(config, file_index)
         column_formats_per_sheet.append(sheet_opts.get("column_format") or {})
         default_formats_per_sheet.append(sheet_opts.get("default_column_format") or {})

@@ -91,6 +91,90 @@ def test_include_only_keys() -> None:
     assert rows[0]["a"] == 1 and rows[0]["c"] == 3
 
 
+def test_path_starts_merge() -> None:
+    """path_starts: первый путь — строки, остальные — доп. данные мержатся в строку с префиксом."""
+    data = {
+        "results": [
+            {"data": {"body": {"a": 1}, "absences": {"isLong": False, "info": "x"}}},
+            {"data": {"body": {"a": 2}, "absences": {"isLong": True}}},
+        ]
+    }
+    rows, columns = flatten_json_data(
+        data, path_sep=" - ", path_starts=[["data", "body"], ["data", "absences"]]
+    )
+    assert len(rows) == 2
+    assert "a" in columns
+    assert "absences - isLong" in columns
+    assert rows[0]["a"] == 1 and rows[0]["absences - isLong"] == "false"
+    assert rows[1]["absences - isLong"] == "true"
+
+
+def test_exclude_keys_in_path() -> None:
+    """exclude_keys_in_path: исключать ключ только внутри заданного пути (например full - info)."""
+    data = {"results": [{"full": {"info": 1, "keep": 2}, "other": {"info": 3}}]}
+    rows, columns = flatten_json_data(
+        data, path_sep=" - ", exclude_keys_in_path=[{"path": "full", "keys": ["info"]}]
+    )
+    assert "full - keep" in columns and rows[0]["full - keep"] == 2
+    assert "other - info" in columns and rows[0]["other - info"] == 3
+    assert "full - info" not in columns
+
+
+def test_array_of_objects_flatten() -> None:
+    """Массив объектов разворачивается в колонки с индексом (1), (2): порядок — сначала все (1), потом все (2)."""
+    data = {"results": [{"emails": [{"address": "a@b.ru", "type": "External"}, {"address": "b@b.ru", "type": "Internal"}]}]}
+    rows, columns = flatten_json_data(data, path_sep=" - ")
+    assert "emails - address - (1)" in columns and "emails - address - (2)" in columns
+    assert "emails - type - (1)" in columns and "emails - type - (2)" in columns
+    # Порядок: сначала все колонки (1), затем (2)
+    idx_addr_1 = columns.index("emails - address - (1)")
+    idx_type_1 = columns.index("emails - type - (1)")
+    idx_addr_2 = columns.index("emails - address - (2)")
+    idx_type_2 = columns.index("emails - type - (2)")
+    assert idx_addr_1 < idx_addr_2 and idx_type_1 < idx_type_2
+    assert max(idx_addr_1, idx_type_1) < min(idx_addr_2, idx_type_2)
+    assert rows[0]["emails - address - (1)"] == "a@b.ru"
+    assert rows[0]["emails - address - (2)"] == "b@b.ru"
+    assert rows[0]["emails - type - (1)"] == "External"
+    assert rows[0]["emails - type - (2)"] == "Internal"
+
+
+def test_array_columns_grouped_by_key() -> None:
+    """Колонки массивов группируются по ключу: сначала все agileManagers (1),(2), затем agileRoles (1),(2)."""
+    data = {
+        "results": [
+            {
+                "agileManagers": [
+                    {"id": "id1", "role": "R1"},
+                    {"id": "id2", "role": "R2"},
+                ],
+                "agileRoles": [
+                    {"name": "N1"},
+                    {"name": "N2"},
+                ],
+            }
+        ]
+    }
+    rows, columns = flatten_json_data(data, path_sep=" - ")
+    # Все колонки agileManagers подряд (с (1), затем (2)), затем agileRoles
+    idx_am_id_1 = columns.index("agileManagers - id - (1)")
+    idx_am_role_1 = columns.index("agileManagers - role - (1)")
+    idx_am_id_2 = columns.index("agileManagers - id - (2)")
+    idx_ar_name_1 = columns.index("agileRoles - name - (1)")
+    idx_ar_name_2 = columns.index("agileRoles - name - (2)")
+    assert max(idx_am_id_1, idx_am_role_1) < idx_am_id_2
+    assert idx_am_id_2 < idx_ar_name_1
+    assert idx_ar_name_1 < idx_ar_name_2
+
+
+def test_column_order() -> None:
+    """column_order: указанные колонки идут первыми, остальные — после в алфавитном порядке."""
+    data = {"results": [{"a": 1, "b": 2, "c": 3}]}
+    rows, columns = flatten_json_data(data, column_order=["c", "a"])
+    assert columns == ["c", "a", "b"]
+    assert rows[0]["c"] == 3 and rows[0]["a"] == 1 and rows[0]["b"] == 2
+
+
 if __name__ == "__main__":
     test_extract_rows_list()
     test_extract_rows_results()
@@ -100,4 +184,9 @@ if __name__ == "__main__":
     test_exclude_keys()
     test_exclude_keys_by_path()
     test_include_only_keys()
+    test_path_starts_merge()
+    test_exclude_keys_in_path()
+    test_array_of_objects_flatten()
+    test_array_columns_grouped_by_key()
+    test_column_order()
     print("Все проверки пройдены.")

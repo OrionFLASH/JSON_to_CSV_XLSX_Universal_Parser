@@ -10,11 +10,31 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Разделитель между ключами в имени колонки (переопределяется из config.json)
 DEFAULT_PATH_SEP = " - "
+
+# Шаблон суффикса колонки из массива объектов: " - (1)", " - (2)" и т.д.
+_ARRAY_INDEX_SUFFIX_RE = re.compile(r"^(.+) - \((\d+)\)$")
+
+
+def _column_sort_key(col_name: str) -> tuple:
+    """
+    Ключ сортировки колонок: по ключам (первый сегмент пути), внутри ключа — по (1), (2), (3)…
+    Не смешиваем все (1) из разных массивов: сначала все колонки agileManagers (1),(2),(3)…,
+    затем agileRoles (1),(2),(3)… и т.д.
+    """
+    # Первый сегмент пути — группа (agileManagers, agileRoles, data и т.д.)
+    parts = col_name.split(" - ")
+    group_key = parts[0] if parts else col_name
+    m = _ARRAY_INDEX_SUFFIX_RE.match(col_name)
+    if m:
+        # Внутри группы: сначала индекс (1), (2), (3), затем базовое имя
+        return (group_key, 1, int(m.group(2)), m.group(1))
+    return (group_key, 0, 0, col_name)
 
 
 def _flatten_one(
@@ -23,13 +43,15 @@ def _flatten_one(
     sep: str,
     out: Dict[str, Any],
     exclude_keys: Optional[Set[str]] = None,
+    exclude_keys_in_path: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
     """
     Рекурсивно обходит узел JSON и записывает скалярные значения в словарь out.
-    exclude_keys: имена ключей или полные пути (например "photoData" или "colorCode - primary"),
-    которые не попадают в out и не обходятся рекурсивно.
+    exclude_keys: имена ключей или полные пути, которые не попадают в out.
+    exclude_keys_in_path: список { "path": "full", "keys": ["info"] } — исключать keys только внутри пути path.
     """
     exclude = exclude_keys or set()
+    exclude_in_path = exclude_keys_in_path or []
     # Исключение по полному пути: не добавляем и не спускаемся
     if prefix in exclude:
         return
@@ -55,13 +77,43 @@ def _flatten_one(
             out[prefix] = ""
         elif all(type(x) in (str, int, float, bool) or x is None for x in obj):
             out[prefix] = ", ".join(str(x) for x in obj)
+        elif all(isinstance(x, dict) for x in obj):
+            # Массив объектов: каждая позиция — отдельные колонки с индексом (1), (2), …
+            # Имя колонки: prefix - ключ - (N); значение — значение этого ключа в N-м элементе массива.
+            for idx, item in enumerate(obj):
+                if not isinstance(item, dict):
+                    continue
+                idx_suffix = f" - ({idx + 1})"
+                for k, v in item.items():
+                    if k in exclude:
+                        continue
+                    part = str(k).replace(sep.strip(), "_").strip()
+                    col_name = f"{prefix}{sep}{part}{idx_suffix}" if prefix else f"{part}{idx_suffix}"
+                    if col_name in exclude:
+                        continue
+                    if v is None:
+                        out[col_name] = ""
+                    elif isinstance(v, bool):
+                        out[col_name] = str(v).lower()
+                    elif isinstance(v, (int, float)):
+                        out[col_name] = v
+                    elif isinstance(v, str):
+                        out[col_name] = v
+                    elif isinstance(v, (dict, list)):
+                        _flatten_one(
+                            v, col_name, sep, out,
+                            exclude_keys=exclude_keys,
+                            exclude_keys_in_path=exclude_in_path,
+                        )
+                    else:
+                        out[col_name] = str(v)
         else:
             try:
                 out[prefix] = json.dumps(obj, ensure_ascii=False)
             except (TypeError, ValueError):
                 out[prefix] = str(obj)
         return
-    # Вложенный объект — обходим ключи, пропуская исключённые по имени или по полному пути
+    # Вложенный объект — обходим ключи, пропуская исключённые
     if isinstance(obj, dict):
         for k, v in obj.items():
             if k in exclude:
@@ -70,7 +122,22 @@ def _flatten_one(
             new_prefix = f"{prefix}{sep}{part}" if prefix else part
             if new_prefix in exclude:
                 continue
-            _flatten_one(v, new_prefix, sep, out, exclude_keys=exclude_keys)
+            # Исключение только внутри заданного пути: если текущий prefix заканчивается на path, не добавлять keys
+            skip = False
+            for rule in exclude_in_path:
+                path_part = (rule.get("path") or "").strip()
+                keys = rule.get("keys") or []
+                if path_part and keys and k in keys:
+                    if prefix.endswith(path_part) or path_part in prefix or new_prefix.endswith(path_part):
+                        skip = True
+                        break
+            if skip:
+                continue
+            _flatten_one(
+                v, new_prefix, sep, out,
+                exclude_keys=exclude_keys,
+                exclude_keys_in_path=exclude_keys_in_path,
+            )
         return
     # Прочие типы
     out[prefix] = str(obj)
@@ -80,17 +147,23 @@ def flatten_row(
     row: Dict[str, Any],
     path_sep: str = DEFAULT_PATH_SEP,
     exclude_keys: Optional[Set[str]] = None,
+    exclude_keys_in_path: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Преобразует одну запись (словарь) в одну плоскую строку таблицы.
     exclude_keys: имена ключей (и подпутей), которые не попадают в результат.
+    exclude_keys_in_path: список { "path": "full", "keys": ["info"] } — исключать keys только внутри path.
     """
     flat: Dict[str, Any] = {}
     for key, value in row.items():
         if key in (exclude_keys or set()):
             continue
         new_prefix = key.replace(path_sep.strip(), "_").strip()
-        _flatten_one(value, new_prefix, path_sep, flat, exclude_keys=exclude_keys)
+        _flatten_one(
+            value, new_prefix, path_sep, flat,
+            exclude_keys=exclude_keys,
+            exclude_keys_in_path=exclude_keys_in_path,
+        )
     return flat
 
 
@@ -138,29 +211,44 @@ def flatten_json_data(
     data: Any,
     path_sep: str = DEFAULT_PATH_SEP,
     path_start: Optional[List[str]] = None,
+    path_starts: Optional[List[List[str]]] = None,
     exclude_keys: Optional[List[str]] = None,
+    exclude_keys_in_path: Optional[List[Dict[str, Any]]] = None,
     include_only_keys: Optional[List[str]] = None,
+    column_order: Optional[List[str]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Разворачивает загруженные данные в плоскую таблицу.
 
-    path_start: цепочка ключей, с которой начинать разбор (например ["data", "body"]).
-                Имена колонок и данные строятся только от этой вложенности.
-    exclude_keys: ключи (имена или пути с разделителем), которые не попадают в выход.
-    include_only_keys: если не пусто — в выход попадают только эти колонки; если пусто — все.
+    path_start: одна цепочка ключей для старта (если path_starts не задан).
+    path_starts: несколько цепочек: первая — источник строк, остальные — доп. данные, мержатся в каждую строку с префиксом.
+    exclude_keys: ключи (имена или пути), которые не попадают в выход.
+    exclude_keys_in_path: список { "path": "full", "keys": ["info"] } — исключать keys только внутри path.
+    include_only_keys: если не пусто — в выход только эти колонки.
+    column_order: порядок колонок (указанные первыми, остальные — в алфавитном порядке после).
     """
     rows_raw = extract_rows(data)
-    path_start = path_start or []
+    # Определяем основной path_start и дополнительные path_starts для слияния
+    if path_starts and len(path_starts) > 0:
+        main_path = path_starts[0]
+        extra_paths = path_starts[1:] if len(path_starts) > 1 else []
+    else:
+        main_path = path_start or []
+        extra_paths = []
+
     exclude_set: Set[str] = set(exclude_keys or [])
     include_set: Optional[Set[str]] = None
     if include_only_keys:
         include_set = set(include_only_keys)
+    excl_in_path = exclude_keys_in_path or []
 
-    # Спуск до нужной вложенности: каждая строка заменяется на подобъект по path_start
-    if path_start:
+    # Сохраняем исходные строки для слияния по extra_paths (drill по ним из корня записи)
+    rows_original = list(rows_raw)
+    # Спуск до нужной вложенности по основной цепочке
+    if main_path:
         new_rows: List[Dict[str, Any]] = []
         for row in rows_raw:
-            drilled = _drill_into(row, path_start)
+            drilled = _drill_into(row, main_path)
             if drilled is not None:
                 new_rows.append(drilled)
             else:
@@ -169,15 +257,39 @@ def flatten_json_data(
 
     all_flat: List[Dict[str, Any]] = []
     all_keys: set = set()
-    for row in rows_raw:
-        flat = flatten_row(row, path_sep, exclude_keys=exclude_set)
+    for i, row in enumerate(rows_raw):
+        flat = flatten_row(
+            row, path_sep,
+            exclude_keys=exclude_set,
+            exclude_keys_in_path=excl_in_path,
+        )
+        # Дополнительные пути: взять значение по пути из исходной строки (до спуска), развернуть и слить
+        if extra_paths and i < len(rows_original):
+            orig = rows_original[i]
+            for extra in extra_paths:
+                sub = _drill_into(orig, extra)
+                if sub is not None:
+                    extra_flat = flatten_row(
+                        sub, path_sep,
+                        exclude_keys=exclude_set,
+                        exclude_keys_in_path=excl_in_path,
+                    )
+                    prefix = (extra[-1] if extra else "").replace(path_sep.strip(), "_").strip()
+                    for k, v in extra_flat.items():
+                        col = f"{prefix}{path_sep}{k}" if prefix else k
+                        flat[col] = v
         all_flat.append(flat)
         all_keys.update(flat.keys())
 
-    columns = sorted(all_keys)
+    # Порядок: сначала колонки без индекса массива, затем по (1), (2), (3)… — все поля (1), потом все (2) и т.д.
+    columns = sorted(all_keys, key=_column_sort_key)
     if include_set is not None:
         columns = [c for c in columns if c in include_set]
-        columns = sorted(columns)
+        columns = sorted(columns, key=_column_sort_key)
+    if column_order:
+        ordered = [c for c in column_order if c in columns]
+        rest = [c for c in columns if c not in ordered]
+        columns = ordered + rest
 
     return all_flat, columns
 
@@ -186,13 +298,16 @@ def load_and_flatten(
     json_path: Path,
     path_sep: str = DEFAULT_PATH_SEP,
     path_start: Optional[List[str]] = None,
+    path_starts: Optional[List[List[str]]] = None,
     exclude_keys: Optional[List[str]] = None,
+    exclude_keys_in_path: Optional[List[Dict[str, Any]]] = None,
     include_only_keys: Optional[List[str]] = None,
+    column_order: Optional[List[str]] = None,
     logger: Optional[logging.Logger] = None,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Читает JSON из файла и разворачивает в плоскую таблицу с учётом
-    path_start, exclude_keys и include_only_keys.
+    path_start/path_starts, exclude_keys, exclude_keys_in_path, include_only_keys, column_order.
     """
     log = logger or logging.getLogger(__name__)
     try:
@@ -207,17 +322,20 @@ def load_and_flatten(
         log.error("Ошибка разбора JSON в %s: %s [def: load_and_flatten]", json_path, e)
         raise
     log.debug(
-        "JSON разобран, path_start=%s, exclude_keys=%s, include_only=%s [def: load_and_flatten]",
+        "JSON разобран, path_start=%s, path_starts=%s, exclude_keys=%s [def: load_and_flatten]",
         path_start,
+        bool(path_starts),
         exclude_keys,
-        bool(include_only_keys),
     )
     rows, columns = flatten_json_data(
         data,
         path_sep=path_sep,
         path_start=path_start,
+        path_starts=path_starts,
         exclude_keys=exclude_keys,
+        exclude_keys_in_path=exclude_keys_in_path,
         include_only_keys=include_only_keys,
+        column_order=column_order,
     )
     log.info(
         "Файл %s: получено строк=%s, колонок=%s [def: load_and_flatten]",
