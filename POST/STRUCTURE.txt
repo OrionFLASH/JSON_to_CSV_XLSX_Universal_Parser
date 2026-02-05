@@ -1,0 +1,73 @@
+# Структура переноса проекта (GIGA IDE / другой компьютер)
+# Файлы в этой папке имеют расширение .txt — после копирования переименуйте в целевое имя.
+
+## Корень проекта
+
+main.py.txt
+  → Поместить в корень проекта как main.py
+  → Точка входа. Список файлов из config.files (get_files_list), обработка с file_index для настроек по файлу. Запуск: python main.py. При необходимости поправить путь к config.json (по умолчанию — корень).
+
+config.json.txt
+  → Поместить в корень проекта как config.json
+  → Конфигурация: input_dir, output_dir, files[] (или input_files), path_start, path_starts, exclude_keys, exclude_keys_in_path, column_order, параметры CSV/XLSX. В files[]: file, sheet_name, output, path_start, path_starts, exclude_keys, exclude_keys_in_path, column_order. Поправить files[].file под свои JSON и пути при необходимости.
+
+README.md.txt
+  → Поместить в корень проекта как README.md (документация)
+  → Описание задачи, функций, конфига, разворота массивов объектов (1),(2),(3), порядка колонок по ключам, exclude_keys_in_path, требований к среде (stdlib, без pip).
+
+
+## Папка src/
+
+src/__init__.py.txt
+  → Поместить как src/__init__.py
+  → Пустой или маркер пакета. Внутри ничего править не требуется.
+
+src/config_loader.py.txt
+  → Поместить как src/config_loader.py
+  → Загрузка config.json (load_config), get_files_list(config), get_file_options(config, file_index, sheet_name), get_sheet_options(config, file_index). При смене пути к конфигу — правки в main.py.
+
+src/csv_exporter.py.txt
+  → Поместить как src/csv_exporter.py
+  → Запись CSV. Внутри ничего править не требуется при стандартном переносе.
+
+src/json_flattener.py.txt
+  → Поместить как src/json_flattener.py
+  → Развёртывание JSON: path_start, path_starts, exclude_keys, exclude_keys_in_path, массивы объектов в колонки с (1),(2),(3), порядок колонок по ключам и по индексу, column_order. Внутри ничего править не требуется.
+
+src/logging_setup.py.txt
+  → Поместить как src/logging_setup.py
+  → Настройка логов в папку log (INFO, DEBUG). При необходимости поправить theme или log_dir (передаётся из main.py).
+
+src/worker.py.txt
+  → Поместить как src/worker.py
+  → Обработка одного файла: get_file_options по file_index, load_and_flatten с path_start/path_starts, exclude_keys, exclude_keys_in_path, column_order; запись CSV при output "csv". Возвращает (sheet_name, rows, columns, path_csv).
+
+src/xlsx_exporter.py.txt
+  → Поместить как src/xlsx_exporter.py
+  → Запись XLSX (stdlib: zipfile, xml.etree). Стили, закрепление, автофильтр, форматы колонок. Внутри ничего править не требуется.
+
+
+## Папка src/Tests/
+
+src/Tests/__init__.py.txt
+  → Поместить как src/Tests/__init__.py
+  → Пустой или маркер пакета. Внутри ничего править не требуется.
+
+src/Tests/test_flattener.py.txt
+  → Поместить как src/Tests/test_flattener.py
+  → Тесты flatten (extract_rows, flatten_row, flatten_json_data, path_start, path_starts, exclude_keys, exclude_keys_in_path, массивы объектов, порядок колонок, column_order). Запуск: python src/Tests/test_flattener.py (из корня). При переносе в другую структуру поправить sys.path.insert в начале файла.
+
+
+## Что создать вручную на целевом компьютере
+
+- Папку IN/ — положить туда JSON-файлы (имена из config.files[].file или input_files).
+- Папки OUT/ и log/ создаются программой при первом запуске.
+
+
+## Порядок действий при переносе
+
+1. Создать на целевом компьютере папку проекта (например JSON_to_CSV_XLSX_Universal_Parser).
+2. Каждый файл из POST переименовать: убрать .txt в конце (main.py.txt → main.py и т.д.) и положить по пути, указанному в этом файле (корень или src/ или src/Tests/).
+3. Поправить config.json: указать свои files[].file (или input_files), при необходимости input_dir, output_dir, exclude_keys, exclude_keys_in_path по файлам.
+4. Положить входные JSON в папку IN (или ту, что указана в input_dir).
+5. Запустить: python main.py (из корня проекта).
