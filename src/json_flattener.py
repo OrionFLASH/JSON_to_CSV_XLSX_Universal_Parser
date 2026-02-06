@@ -298,8 +298,26 @@ def flatten_json_data(
         columns = [c for c in columns if c in include_set]
         columns = sorted(columns, key=_column_sort_key)
     if column_order:
-        ordered = [c for c in column_order if c in columns]
-        rest = [c for c in columns if c not in ordered]
+        # Точное совпадение или префикс: "emails" подтягивает все колонки emails - ... - (1), (2) в нужном порядке
+        ordered: List[str] = []
+        used: Set[str] = set()
+        prefix_sep = path_sep if path_sep else " - "
+        for item in column_order:
+            item_str = (item or "").strip()
+            if not item_str:
+                continue
+            if item_str in columns and item_str not in used:
+                ordered.append(item_str)
+                used.add(item_str)
+                continue
+            # Префикс: все колонки, начинающиеся с item_str + разделитель пути, в порядке _column_sort_key
+            prefix = item_str + prefix_sep
+            matching = [c for c in columns if c.startswith(prefix) and c not in used]
+            matching.sort(key=_column_sort_key)
+            for c in matching:
+                ordered.append(c)
+                used.add(c)
+        rest = [c for c in columns if c not in used]
         columns = ordered + rest
 
     return all_flat, columns

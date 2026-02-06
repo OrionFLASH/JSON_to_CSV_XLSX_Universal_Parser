@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import re
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import zipfile
@@ -185,6 +186,58 @@ def _to_integer_value(val: Any) -> Optional[float]:
             return None
 
 
+# Excel serial date: 1900-01-01 = 1 (с учётом встроенной ошибки Excel: 1900 считается високосным)
+_EXCEL_EPOCH = datetime(1899, 12, 30)
+
+
+def _to_date_value(val: Any) -> Optional[float]:
+    """
+    Приводит значение к числовому формату даты Excel (дни с 1899-12-30).
+    Поддерживает: datetime, число (уже сериал), строку ISO (YYYY-MM-DD) или dd.mm.yyyy / dd/mm/yyyy.
+    """
+    if val is None or val == "":
+        return None
+    if isinstance(val, datetime):
+        return float((val - _EXCEL_EPOCH).days)
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip()
+    if not s:
+        return None
+    # ISO
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00")[:10])
+        return float((dt - _EXCEL_EPOCH).days)
+    except ValueError:
+        pass
+    # dd.mm.yyyy или dd/mm/yyyy
+    for sep in (".", "/", "-"):
+        if sep in s and len(s) >= 8:
+            parts = s.split(sep)
+            if len(parts) == 3:
+                try:
+                    d, m, y = int(parts[0]), int(parts[1]), int(parts[2])
+                    if y < 100:
+                        y += 2000 if y < 50 else 1900
+                    dt = datetime(y, m, d)
+                    return float((dt - _EXCEL_EPOCH).days)
+                except (ValueError, TypeError):
+                    pass
+    return None
+
+
+def _date_format_to_excel(date_format: str) -> str:
+    """Преобразует описание формата даты (DD.MM.YYYY и т.п.) в formatCode Excel (dd.mm.yyyy)."""
+    s = (date_format or "dd.mm.yyyy").strip()
+    s = re.sub(r"YYYY", "yyyy", s, flags=re.I)
+    s = re.sub(r"YY(?![a-z])", "yy", s, flags=re.I)
+    s = re.sub(r"DD", "dd", s, flags=re.I)
+    s = re.sub(r"D(?![a-z])", "d", s, flags=re.I)
+    s = re.sub(r"MM", "mm", s, flags=re.I)
+    s = re.sub(r"M(?![a-z])", "m", s, flags=re.I)
+    return s or "dd.mm.yyyy"
+
+
 # Допустимые значения выравнивания в OOXML (SpreadsheetML)
 _HORIZONTAL_MAP = {"left": "left", "center": "center", "right": "right", "general": "general"}
 _VERTICAL_MAP = {"top": "top", "center": "center", "bottom": "bottom"}
@@ -226,12 +279,19 @@ def write_xlsx(
     log = logger or logging.getLogger(__name__)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    # Стиль с форматом «целое число»: numFmtId 1 в Excel = "0" (целое)
+    # Стиль с форматом «целое число» и «дата»
     def _has_integer(cf: Optional[Dict], df: Optional[Dict]) -> bool:
         if cf:
-            if any((opts or {}).get("number_format") == "integer" for opts in cf.values()):
+            if any((opts or {}).get("number_format") == "integer" for opts in (cf or {}).values()):
                 return True
         if df and (df or {}).get("number_format") == "integer":
+            return True
+        return False
+    def _has_date(cf: Optional[Dict], df: Optional[Dict]) -> bool:
+        if cf:
+            if any((opts or {}).get("number_format") == "date" for opts in (cf or {}).values()):
+                return True
+        if df and (df or {}).get("number_format") == "date":
             return True
         return False
     use_integer_style = bool(
@@ -244,6 +304,29 @@ def write_xlsx(
             for i in range(max(len(column_formats_per_sheet or []), len(default_formats_per_sheet or [])))
         )
     )
+    use_date_style = bool(
+        (column_formats_per_sheet or default_formats_per_sheet)
+        and any(
+            _has_date(
+                (column_formats_per_sheet or [])[i] if i < len(column_formats_per_sheet or []) else None,
+                (default_formats_per_sheet or [])[i] if i < len(default_formats_per_sheet or []) else None,
+            )
+            for i in range(max(len(column_formats_per_sheet or []), len(default_formats_per_sheet or [])))
+        )
+    )
+    # Формат даты для custom numFmt: из первой попавшейся колонки с number_format: "date"
+    date_format_code = "dd.mm.yyyy"
+    if use_date_style and default_formats_per_sheet:
+        for sheet_def in default_formats_per_sheet or []:
+            if (sheet_def or {}).get("number_format") == "date":
+                date_format_code = _date_format_to_excel((sheet_def or {}).get("date_format") or "dd.mm.yyyy")
+                break
+    if use_date_style and column_formats_per_sheet:
+        for sheet_cf in column_formats_per_sheet or []:
+            for opts in (sheet_cf or {}).values():
+                if (opts or {}).get("number_format") == "date":
+                    date_format_code = _date_format_to_excel((opts or {}).get("date_format") or "dd.mm.yyyy")
+                    break
 
     # Сбор всех строковых значений со всех листов для общей таблицы shared strings
     all_strings: List[str] = []
@@ -331,18 +414,19 @@ def write_xlsx(
                 val = row.get(col_name, "")
                 col_fmt = (sheet_column_format or {}).get(col_name) or (sheet_default_format or {})
                 is_integer_format = use_integer_style and (col_fmt or {}).get("number_format") == "integer"
+                is_date_format = use_date_style and (col_fmt or {}).get("number_format") == "date"
                 # Правило: если значение не преобразуется в указанный тип формата колонки — ячейка
                 # записывается как значение по умолчанию (текст) и со стилем по умолчанию/данных, не формата.
-                # Индекс стиля для ячейки данных: integer-стиль или общий стиль данных
                 cell_style_s = None
                 if is_integer_format and integer_style_idx > 0:
                     cell_style_s = str(integer_style_idx)
+                elif is_date_format and date_style_idx > 0:
+                    cell_style_s = str(date_style_idx)
                 elif data_style_idx > 0:
                     cell_style_s = str(data_style_idx)
                 if is_integer_format:
                     num_val = _to_integer_value(val)
                     if num_val is not None:
-                        # Успешное преобразование — записываем число со стилем integer
                         c_attrs = {"r": _cell_ref(col_idx, row_idx + 2), "t": "n"}
                         if cell_style_s:
                             c_attrs["s"] = cell_style_s
@@ -350,8 +434,25 @@ def write_xlsx(
                         v = ET.SubElement(c, "v")
                         v.text = str(int(num_val) if num_val == int(num_val) else num_val)
                     else:
-                        # Преобразование в указанный тип не удалось — оставляем значение по умолчанию (текст)
-                        # Стиль ячейки: не integer, а стиль по умолчанию (0) или общий стиль данных
+                        cell_type, cell_val = _cell_value(val)
+                        if cell_type == "s":
+                            cell_val = str(str_index.get(cell_val, 0))
+                        c_attrs = {"r": _cell_ref(col_idx, row_idx + 2), "t": cell_type}
+                        if data_style_idx > 0:
+                            c_attrs["s"] = str(data_style_idx)
+                        c = ET.SubElement(r_el, "c", **c_attrs)
+                        v = ET.SubElement(c, "v")
+                        v.text = cell_val
+                elif is_date_format:
+                    date_val = _to_date_value(val)
+                    if date_val is not None:
+                        c_attrs = {"r": _cell_ref(col_idx, row_idx + 2), "t": "n"}
+                        if cell_style_s:
+                            c_attrs["s"] = cell_style_s
+                        c = ET.SubElement(r_el, "c", **c_attrs)
+                        v = ET.SubElement(c, "v")
+                        v.text = str(int(date_val) if date_val == int(date_val) else date_val)
+                    else:
                         cell_type, cell_val = _cell_value(val)
                         if cell_type == "s":
                             cell_val = str(str_index.get(cell_val, 0))
@@ -470,14 +571,18 @@ def write_xlsx(
     fills_count = len(fills_parts)
     fills_xml = "<fills count=\"" + str(fills_count) + "\">" + "".join(fills_parts) + "</fills>"
     borders_xml = '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-    # cellXfs: 0=по умолчанию, 1=integer (если нужен), 2=заголовок (если нужен), 3=данные (если нужен)
+    # Пользовательский формат даты (numFmtId 164) — только если есть колонки с number_format: "date"
+    DATE_NUMFMT_ID = 164
+    numfmts_xml = ""
+    if use_date_style:
+        numfmts_xml = '<numFmts count="1"><numFmt numFmtId="' + str(DATE_NUMFMT_ID) + '" formatCode="' + _escape(date_format_code) + '"/></numFmts>'
+    # cellXfs: 0=по умолчанию, 1=integer (если нужен), 2=date (если нужен), 3=заголовок, 4=данные
     xfs_list: List[str] = []
     idx = 0
     xfs_list.append('<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>')
     idx += 1
     if use_integer_style:
         integer_style_idx = idx
-        # Стиль «целое число»: при необходимости добавляем выравнивание как у данных
         if data_style_needed:
             xfs_list.append(
                 '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
@@ -489,6 +594,19 @@ def write_xlsx(
         idx += 1
     else:
         integer_style_idx = 0
+    if use_date_style:
+        date_style_idx = idx
+        if data_style_needed:
+            xfs_list.append(
+                '<xf numFmtId="' + str(DATE_NUMFMT_ID) + '" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
+                '<alignment horizontal="' + d_hor + '" vertical="' + d_ver + '" wrapText="' + ("1" if wrap_text else "0") + '"/>'
+                "</xf>"
+            )
+        else:
+            xfs_list.append('<xf numFmtId="' + str(DATE_NUMFMT_ID) + '" fontId="0" fillId="0" borderId="0" xfId="0"/>')
+        idx += 1
+    else:
+        date_style_idx = 0
     if header_style:
         style_header_idx = idx
         xfs_list.append(
@@ -515,7 +633,7 @@ def write_xlsx(
     cellxfs_str = "".join(xfs_list)
     styles_xml_pre = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  """ + fonts_xml + """
+  """ + (numfmts_xml + "\n  " if numfmts_xml else "") + fonts_xml + """
   """ + fills_xml + """
   """ + borders_xml + """
   <cellXfs count=\"""" + str(len(xfs_list)) + "\">" + cellxfs_str + """</cellXfs>

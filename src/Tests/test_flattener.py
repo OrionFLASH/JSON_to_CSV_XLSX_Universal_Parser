@@ -187,11 +187,24 @@ def test_array_columns_grouped_by_key() -> None:
 
 
 def test_column_order() -> None:
-    """column_order: указанные колонки идут первыми, остальные — после в алфавитном порядке."""
+    """column_order: указанные колонки идут первыми, остальные — после."""
     data = {"results": [{"a": 1, "b": 2, "c": 3}]}
     rows, columns = flatten_json_data(data, column_order=["c", "a"])
     assert columns == ["c", "a", "b"]
     assert rows[0]["c"] == 3 and rows[0]["a"] == 1 and rows[0]["b"] == 2
+
+
+def test_column_order_with_prefix() -> None:
+    """column_order с префиксом: 'emails' подтягивает все колонки emails - ... - (1), (2) в порядке (1),(2)."""
+    data = {"results": [{"name": "Ivan", "emails": [{"address": "a@b.ru", "type": "W"}, {"address": "b@b.ru", "type": "H"}]}]}
+    rows, columns = flatten_json_data(data, path_sep=" - ", column_order=["name", "emails"])
+    assert columns[0] == "name"
+    # Дальше идут все emails в порядке (1), (2)
+    assert "emails - address - (1)" in columns and "emails - address - (2)" in columns
+    idx_addr_1 = columns.index("emails - address - (1)")
+    idx_addr_2 = columns.index("emails - address - (2)")
+    assert idx_addr_1 < idx_addr_2
+    assert columns.index("name") < idx_addr_1
 
 
 if __name__ == "__main__":
@@ -209,4 +222,5 @@ if __name__ == "__main__":
     test_array_of_objects_flatten()
     test_array_columns_grouped_by_key()
     test_column_order()
+    test_column_order_with_prefix()
     print("Все проверки пройдены.")

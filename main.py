@@ -139,10 +139,16 @@ def main() -> None:
         column_formats_per_sheet.append(sheet_opts.get("column_format") or {})
         default_formats_per_sheet.append(sheet_opts.get("default_column_format") or {})
     has_any_format = any(cf for cf in column_formats_per_sheet) or any(df for df in default_formats_per_sheet)
-    # Закрепление: общая ячейка по умолчанию и переопределение по листам
-    freeze_cell = (xlsx_opts.get("freeze_cell") or "").strip() or None
+    # Закрепление: по умолчанию freeze_cell (или A2 при freeze_first_row); для каждого листа — из xlsx.sheets[].freeze_cell
+    default_freeze = (xlsx_opts.get("freeze_cell") or "").strip() or ("A2" if xlsx_opts.get("freeze_first_row", True) else None)
+    freeze_cell = default_freeze
     freeze_pane_per_sheet = xlsx_opts.get("freeze_pane_per_sheet") or []
     freeze_cell_per_sheet: List[Optional[str]] = [None] * len(sheets_data)
+    for j in range(len(sheets_data)):
+        file_index = sheet_file_indices[j] if j < len(sheet_file_indices) else j
+        sheet_opts = config_loader.get_sheet_options(config, file_index)
+        cell = (sheet_opts.get("freeze_cell") or "").strip()
+        freeze_cell_per_sheet[j] = cell if cell else default_freeze
     for entry in freeze_pane_per_sheet:
         if isinstance(entry, dict) and "sheet_index" in entry and "cell" in entry:
             idx = entry["sheet_index"]
