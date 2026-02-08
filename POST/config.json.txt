@@ -24,19 +24,19 @@
     "xlsx_freeze_cell": "Ячейка-граница закрепления по умолчанию для всех листов. Варианты: 'A2' — закрепить первую строку; 'B1' — первую колонку; 'B2' — строку и колонку; пусто — использовать freeze_first_row (при true = A2).",
     "xlsx_column_width_mode": "Режим ширины колонок: auto — автоподбор в пределах width_min..width_max; minimum — всегда width_min; maximum — всегда width_max.",
     "xlsx_auto_row_height": "Автоподбор высоты строк по содержимому. true | false.",
-    "xlsx_freeze_pane_per_sheet": "Массив переопределений закрепления по листам: [ { \"sheet_index\": 0, \"cell\": \"B2\" }, { \"sheet_index\": 1, \"cell\": \"A2\" } ]. sheet_index — индекс листа (0, 1, …); cell — ячейка-граница. Для листа без записи используется freeze_cell.",
+    "xlsx_freeze_pane_per_sheet": "Опционально: переопределение закрепления по sheet_index. Рекомендуется задавать freeze_cell в xlsx.sheets[] для каждого листа (без индексов); если не задано — используется общий freeze_cell.",
     "xlsx_autofilter": "Включить автофильтр по первой строке. true | false.",
-    "xlsx_sheets_name": "Отображаемое имя листа в XLSX (до 31 символа). Варианты: 'Профили', 'Лист1', имя по файлу задаётся автоматически, если листов меньше чем файлов.",
+    "xlsx_sheets_name": "Отображаемое имя листа в XLSX (до 31 символа). В каждом элементе sheets[] можно задать freeze_cell (например 'D2', 'F2') — закрепление для этого листа; иначе используется общий freeze_cell.",
     "xlsx_sheets_columns": "Список колонок для листа (пусто = все). Обычно [].",
-    "xlsx_column_format": "Формат колонок на листе: объект { имя_колонки: { number_format, … } }. Применяется: number_format 'integer' — целое число. Если значение не преобразуется в указанный тип (например в колонке integer — текст), ячейка записывается по умолчанию (текст) и со стилем по умолчанию.",
+    "xlsx_column_format": "Формат колонок на листе: объект { имя_колонки: { number_format, date_format?, … } }. number_format: 'integer' — целое число; 'date' — дата (date_format: YYYY-MM-DD, DD.MM.YYYY). При неудачном преобразовании — текст по умолчанию.",
     "xlsx_default_column_format": "Формат по умолчанию для всех колонок листа. Заголовок (первая строка): header_horizontal_align, header_vertical_align, header_fg_color, header_bg_color, header_bold, header_italic, header_underline. Данные (ячейки): data_horizontal_align, data_vertical_align, data_fg_color, data_bg_color, data_bold, data_italic, data_underline. Общие: number_format, width_min, width_max, wrap_text, float_decimals, decimal_separator, thousands_separator, date_format.",
     "column_formats_options": "Справочник опций форматирования. Применяются в XLSX: number_format (integer); width_min, width_max; выравнивание и стили заголовка (header_horizontal_align, header_vertical_align, header_fg_color, header_bg_color, header_bold, header_italic); выравнивание и стили данных (data_*); wrap_text при auto_row_height. Зарезервированы: float_decimals, date_format, header_underline, data_underline."
   },
   "input_dir": "IN",
   "output_dir": "OUT",
   "path_separator": " - ",
-  "path_start": ["data", "body"],
-  "exclude_keys": ["photoData", "reactions", "colorCode", "isSuperUser", "source"],
+  "path_start": [],
+  "exclude_keys": [],
   "include_only_keys": [],
   "files": [
     {
@@ -45,27 +45,37 @@
       "output": ["xlsx"],
       "path_start": ["data", "body"],
       "exclude_keys": ["photoData", "reactions", "colorCode", "isSuperUser", "source"],
-      "column_order": []
+      "column_order": ["employeeNumber", "lastName", "firstName", "positionName", "roleCode", "tbCode", "tbShortName", "gosbCode", "gosbName", "gosbShortName"]
     },
     {
-      "file": "profiles_20260203.json",
-      "sheet_name": "PROF1",
+      "file": "empInfoFull_results_20260205-104000.json",
+      "sheet_name": "Адресбук",
       "output": ["xlsx"],
-      "path_start": ["data", "body"],
+      "path_start": ["data"],
       "exclude_keys": [
         "photoData", "reactions", "colorCode", "isSuperUser", "source",
         "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId",
         "logins", "skills", "zamId", "isAgile", "isFos", "tabel", "profileLink", "tags",
-        "insider", "isDZO", "isRemote", "isRK", "isBTManager", "addressIsFromAsun"
+        "insider", "isDZO", "isRemote", "isRK", "isBTManager", "addressIsFromAsun", "agileRoles2",
+        "hasSec", "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop", "outText", "responsibility",
+        "secretaries", "secretaryChiefs", "allMobilesHidden", "innerPhoneState", "dirId", "fos", "remoteDays",
+        "remoteEnd", "remoteStart", "remoteType", "agileManagers", "agileTree", "zamFIO", "empAddress",
+        "empPlace", "agileRoles"
       ],
       "exclude_keys_in_path": [
         { "path": "agileManagers", "keys": ["id"] },
+        { "path": "emails", "keys": ["domain"] },
+        { "path": "newPhoneNumber", "keys": ["activatedAt"] },
+        { "path": "absences - info", "keys": ["startDate", "endDate", "typeId", "daysRemains", "isLong", "isAbsent"] },
+        { "path": "absences", "keys": ["customAbsences", "commonAbsence", "isLong"] },
+        { "path": "fos", "keys": ["fosId", "fosDirId", "id"] },
+        { "path": "fosDirData", "keys": ["fosDirId"] },
         { "path": "agileTree", "keys": ["id"] },
         { "path": "deptTree", "keys": ["id"] },
         { "path": "emails", "keys": ["id", "type", "isMain"] },
         { "path": "phones", "keys": ["id", "main", "hidden"] }
       ],
-      "column_order": []
+      "column_order": ["tabNum", "tn", "empFamilyName", "empName", "empPatronymic", "jobTitle", "empTBname", "emails"]
     }
   ],
   "csv": {
@@ -83,6 +93,7 @@
     "sheets": [
       {
         "name": "Профили",
+        "freeze_cell": "D2",
         "columns": [],
         "default_column_format": {
         "number_format": "text",
@@ -117,7 +128,8 @@
         }
       },
       {
-        "name": "PROF1",
+        "name": "Адресбук",
+        "freeze_cell": "F2",
         "columns": [],
         "default_column_format": {
           "number_format": "text",
@@ -144,11 +156,8 @@
           "data_underline": false
         },
         "column_format": {
-          "gosbCode": { "number_format": "integer" },
-          "groupingCode": { "number_format": "integer" },
-          "clusterCode": { "number_format": "integer" },
-          "reactionCount": { "number_format": "integer" },
-          "tbCode": { "number_format": "integer" }
+          "birthday": { "number_format": "date", "date_format": "YYYY-MM-DD"},
+          "tn": { "width_min": 5, "width_max": 10 }
         }
       }
     ]
@@ -177,7 +186,7 @@
       "float_decimals": "число знаков после запятой (зарезервировано)",
       "decimal_separator": ",",
       "thousands_separator": " ",
-      "date_format": "DD.MM.YYYY (зарезервировано)"
+      "date_format": "для number_format: \"date\" — формат отображения (YYYY-MM-DD, DD.MM.YYYY и т.д.)"
     }
   }
 }
