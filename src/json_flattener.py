@@ -4,6 +4,7 @@
 Имя колонки = путь от корня до значения (или от path_start) в виде "ключ1 - ключ2 - ключ3".
 Поддержка: старт с заданной вложенности (path_start), исключение ключей (exclude_keys),
 вывод только указанных колонок (include_only_keys).
+path_start может заканчиваться массивом объектов: каждый элемент массива становится отдельной строкой.
 """
 
 from __future__ import annotations
@@ -191,6 +192,19 @@ def _drill_into(row: Dict[str, Any], path_start: List[str]) -> Optional[Dict[str
     return current if isinstance(current, dict) else None
 
 
+def _follow_path(row: Dict[str, Any], path_start: List[str]) -> Optional[Any]:
+    """
+    Спуск по цепочке ключей; возвращает значение на конце пути (dict, list или скаляр).
+    None — если путь оборван (нет ключа или не dict на промежуточном шаге).
+    """
+    current: Any = row
+    for key in path_start:
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return current
+
+
 def extract_rows(data: Any) -> List[Dict[str, Any]]:
     """
     Определяет, что считать строками таблицы, по структуре корня JSON.
@@ -211,6 +225,25 @@ def extract_rows(data: Any) -> List[Dict[str, Any]]:
         for key in ("results", "data", "items", "rows"):
             if key in data and isinstance(data[key], list):
                 return extract_rows(data[key])
+        # Несколько ключей корня, каждый — список объектов (напр. турниры по id): объединяем в одну таблицу строк
+        if len(data) > 1:
+            merged_multi: List[Dict[str, Any]] = []
+            all_values_are_lists_of_dicts = True
+            for value in data.values():
+                if not isinstance(value, list):
+                    all_values_are_lists_of_dicts = False
+                    break
+                for x in value:
+                    if not isinstance(x, dict):
+                        all_values_are_lists_of_dicts = False
+                        break
+            if all_values_are_lists_of_dicts:
+                for value in data.values():
+                    for item in value:
+                        if isinstance(item, dict):
+                            merged_multi.append(item)
+                if merged_multi:
+                    return merged_multi
         for value in data.values():
             if isinstance(value, list) and value and isinstance(value[0], dict):
                 return extract_rows(value)
@@ -232,6 +265,7 @@ def flatten_json_data(
     Разворачивает загруженные данные в плоскую таблицу.
 
     path_start: одна цепочка ключей для старта (если path_starts не задан).
+        Если на конце цепочки — список словарей, строк таблицы будет столько, сколько элементов в списке.
     path_starts: несколько цепочек: первая — источник строк, остальные — доп. данные, мержатся в каждую строку с префиксом.
     exclude_keys: ключи (имена или пути), которые не попадают в выход.
     exclude_keys_in_path: список { "path": "full", "keys": ["info"] } — исключать keys только внутри path.
@@ -255,16 +289,41 @@ def flatten_json_data(
 
     # Сохраняем исходные строки для слияния по extra_paths (drill по ним из корня записи)
     rows_original = list(rows_raw)
-    # Спуск до нужной вложенности по основной цепочке
+    # Спуск по основной цепочке: если на конце пути — список объектов, каждый элемент становится отдельной строкой
     if main_path:
         new_rows: List[Dict[str, Any]] = []
-        for row in rows_raw:
-            drilled = _drill_into(row, main_path)
-            if drilled is not None:
-                new_rows.append(drilled)
-            else:
+        new_originals: List[Dict[str, Any]] = []
+        for i, row in enumerate(rows_raw):
+            orig = rows_original[i] if i < len(rows_original) else row
+            if not isinstance(row, dict):
                 new_rows.append(row)
+                new_originals.append(orig)
+                continue
+            tail = _follow_path(row, main_path)
+            if tail is None:
+                new_rows.append(row)
+                new_originals.append(orig)
+            elif isinstance(tail, list):
+                if not tail:
+                    new_rows.append(row)
+                    new_originals.append(orig)
+                else:
+                    for item in tail:
+                        if isinstance(item, dict):
+                            new_rows.append(item)
+                            new_originals.append(orig)
+                        else:
+                            new_rows.append({"_": item})
+                            new_originals.append(orig)
+            elif isinstance(tail, dict):
+                new_rows.append(tail)
+                new_originals.append(orig)
+            else:
+                # Скаляр на конце пути — одна строка-обёртка
+                new_rows.append({"_value": tail})
+                new_originals.append(orig)
         rows_raw = new_rows
+        rows_original = new_originals
 
     all_flat: List[Dict[str, Any]] = []
     all_keys: set = set()

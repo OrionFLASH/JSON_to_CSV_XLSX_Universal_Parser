@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Загрузка и разбор конфигурации из config.json.
-Список входных файлов, параметры CSV/XLSX, форматирование колонок.
+Список входных файлов (files[]), фильтр enabled/disabled, параметры CSV/XLSX.
+Оформление листа: вложенный files[].sheet или устаревший xlsx.sheets по индексу.
 Логирование: WARNING при отсутствии или ошибке чтения конфига.
 """
 
@@ -10,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Значения по умолчанию при отсутствии конфига или ключей
 DEFAULT_INPUT_DIR = "IN"
@@ -31,7 +32,8 @@ DEFAULT_XLSX = {
 
 def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     """
-    Загружает config.json. Если путь не передан — ищет config.json в корне проекта.
+    Загружает config.json (только рабочие ключи; пояснения к параметрам — в README).
+    Если путь не передан — ищет config.json в корне проекта.
     При ошибке или отсутствии файла возвращает конфиг по умолчанию с пустым files.
     """
     if config_path is None:
@@ -52,7 +54,6 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
             "include_only_keys": [],
             "csv": DEFAULT_CSV.copy(),
             "xlsx": DEFAULT_XLSX.copy(),
-            "column_formats": {},
         }
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -72,7 +73,6 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
             "include_only_keys": [],
             "csv": DEFAULT_CSV.copy(),
             "xlsx": DEFAULT_XLSX.copy(),
-            "column_formats": {},
         }
     if not isinstance(data, dict):
         data = {}
@@ -87,8 +87,25 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         "include_only_keys": data.get("include_only_keys", []),
         "csv": {**DEFAULT_CSV, **data.get("csv", {})},
         "xlsx": {**DEFAULT_XLSX, **data.get("xlsx", {})},
-        "column_formats": data.get("column_formats", {}),
     }
+
+
+def _is_file_entry_enabled(file_entry: Dict[str, Any]) -> bool:
+    """
+    Запись files[] считается включённой, если enabled не false и disabled не true.
+    По умолчанию (ключи отсутствуют) — включено.
+    """
+    if file_entry.get("disabled") is True:
+        return False
+    dis = str(file_entry.get("disabled", "")).strip().lower()
+    if dis in ("1", "true", "yes", "on"):
+        return False
+    if file_entry.get("enabled") is False:
+        return False
+    en = str(file_entry.get("enabled", "")).strip().lower()
+    if en in ("0", "false", "no", "off"):
+        return False
+    return True
 
 
 def get_sheet_options(
@@ -96,9 +113,21 @@ def get_sheet_options(
     file_index: int,
 ) -> Dict[str, Any]:
     """
-    Возвращает настройки листа для файла с индексом file_index из config.xlsx.sheets.
-    Если листов меньше чем файлов — повторяется первый лист с подставленным именем.
+    Настройки оформления листа XLSX для config.files[file_index].
+    Приоритет: вложенный объект files[].sheet; иначе (устар.) config.xlsx.sheets[file_index].
     """
+    files = config.get("files", [])
+    if isinstance(files, list) and 0 <= file_index < len(files):
+        f = files[file_index]
+        if isinstance(f, dict):
+            nested = f.get("sheet")
+            if isinstance(nested, dict) and nested:
+                sheet_title = f.get("sheet_name") or nested.get("name") or f"Лист{file_index + 1}"
+                merged: Dict[str, Any] = {**nested, "name": str(sheet_title)[:31]}
+                merged.setdefault("columns", [])
+                merged.setdefault("column_format", {})
+                merged.setdefault("default_column_format", {})
+                return merged
     xlsx = config.get("xlsx", {})
     sheets = xlsx.get("sheets", [])
     if not sheets:
@@ -108,14 +137,29 @@ def get_sheet_options(
     return {**sheets[0], "name": sheets[0].get("name", f"Лист{file_index + 1}")}
 
 
-def get_files_list(config: Dict[str, Any]) -> List[str]:
+def get_enabled_files_with_indices(config: Dict[str, Any]) -> List[Tuple[str, int]]:
     """
-    Возвращает список имён файлов для обработки из config.files (массив объектов с полем file).
+    Список (имя_файла, индекс_в_config.files) только для записей с enabled (и не disabled).
+    Индекс нужен, чтобы get_file_options/get_sheet_options брали настройки той же записи.
     """
     files = config.get("files")
-    if files and isinstance(files, list):
-        return [f.get("file") for f in files if f.get("file")]
-    return []
+    out: List[Tuple[str, int]] = []
+    if not files or not isinstance(files, list):
+        return out
+    for i, f in enumerate(files):
+        if not isinstance(f, dict) or not f.get("file"):
+            continue
+        if not _is_file_entry_enabled(f):
+            continue
+        out.append((str(f["file"]), i))
+    return out
+
+
+def get_files_list(config: Dict[str, Any]) -> List[str]:
+    """
+    Имена файлов для обработки (только включённые записи files[]).
+    """
+    return [name for name, _ in get_enabled_files_with_indices(config)]
 
 
 def get_file_options(
@@ -126,7 +170,7 @@ def get_file_options(
     """
     Настройки для одного файла (листа): path_start/path_starts, exclude_keys,
     exclude_keys_in_path, output (csv/xlsx), sheet_name, column_order.
-    Объединяет config.files[file_index] с глобальными и xlsx.sheets.
+    Объединяет config.files[file_index] с глобальными и вложенным files[].sheet (или xlsx.sheets).
     """
     files = config.get("files")
     opts: Dict[str, Any] = {

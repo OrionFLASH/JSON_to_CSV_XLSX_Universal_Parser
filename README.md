@@ -39,7 +39,7 @@
 
 ## Что делает программа (пошагово)
 
-1. **Чтение конфига** — из `config.json` загружаются пути (`input_dir`, `output_dir`), список файлов (из массива `files[]` или из `input_files`), параметры разбора и экспорта (CSV, XLSX).
+1. **Чтение конфига** — из `config.json` загружаются пути (`input_dir`, `output_dir`), список файлов из массива `files[]` (только записи с **`enabled`: true**), параметры разбора и экспорта (CSV, XLSX).
 2. **Обработка каждого файла** (параллельно или последовательно):
    - JSON читается из `input_dir`/`имя_файла`;
    - определяется массив «строк» (записей) — см. раздел про `extract_rows`;
@@ -47,7 +47,7 @@
    - формируется общий список колонок по всем строкам (порядок: по ключам, внутри массива объектов — (1), (2), (3)…);
    - таблица записывается в CSV в `output_dir` с именем `{имя_файла}_{таймштамп}.csv`;
    - для XLSX возвращаются данные листа: имя листа, строки, колонки.
-3. **Сборка XLSX** — один файл `output_{таймштамп}.xlsx` с листом на каждый обработанный JSON; к листам применяются настройки из `xlsx.sheets` (имя, ширина колонок, закрепление, стили заголовка и данных).
+3. **Сборка XLSX** — один файл `output_{таймштамп}.xlsx` с листом на каждый обработанный JSON; к листам применяются настройки из **`files[].sheet`** (закрепление, форматы колонок). Устаревший вариант — глобальный массив `xlsx.sheets[]`, если у записи нет вложенного `sheet`.
 4. **Логи** пишутся в папку `log` (INFO и DEBUG с указанием функции/класса).
 
 ---
@@ -56,13 +56,13 @@
 
 ```
 .
-├── config.json          # Конфигурация; блок __comments — пояснения и варианты
+├── config.json          # Конфигурация (только данные; описание ключей — в README)
 ├── main.py              # Точка входа
 ├── IN/                  # Входные JSON-файлы
 ├── OUT/                 # Результаты: CSV и output_YYYYMMDD-HHMM.xlsx
 ├── log/                 # Логи INFO и DEBUG
 ├── src/
-│   ├── config_loader.py # Загрузка config.json, get_sheet_options
+│   ├── config_loader.py # Загрузка config.json, get_enabled_files_with_indices, get_sheet_options
 │   ├── csv_exporter.py  # Запись CSV
 │   ├── json_flattener.py# Развёртывание JSON (path_start/path_starts, exclude_keys, exclude_keys_in_path, массивы объектов (1),(2)…)
 │   ├── logging_setup.py # Настройка логов
@@ -80,7 +80,7 @@
 ### main.py
 
 - **`main()`**  
-  Точка входа: настраивает логирование, загружает конфиг, формирует список файлов из `input_dir` по `input_files`, запускает обработку (пул процессов или цикл), собирает данные листов и вызывает `xlsx_exporter.write_xlsx`. При отсутствии файлов или папки завершает работу с сообщением в лог.
+  Точка входа: настраивает логирование, загружает конфиг, формирует список файлов из `input_dir` по записям **`files[]`** с **`enabled`: true**, запускает обработку (пул процессов или цикл), собирает данные листов и вызывает `xlsx_exporter.write_xlsx`. При отсутствии файлов или папки завершает работу с сообщением в лог.
 
 - **`_process_one_file_standalone(json_path_str, base_dir_str, config)`**  
   Обёртка для дочернего процесса: вызывает `worker.process_one_file`, возвращает `(имя_листа, строки, колонки)`. Используется в `multiprocessing.Pool.starmap`.
@@ -90,16 +90,19 @@
 ### src.config_loader
 
 - **`load_config(config_path=None)`**  
-  Загружает `config.json` по пути (по умолчанию — корень проекта). При ошибке или отсутствии файла возвращает конфиг по умолчанию с пустым `input_files`. Объединяет вложенные секции `csv` и `xlsx` с дефолтами (`DEFAULT_CSV`, `DEFAULT_XLSX`). Возвращает словарь с ключами: `input_dir`, `output_dir`, `input_files`, `files`, `path_separator`, `path_start`, `exclude_keys`, `exclude_keys_in_path`, `include_only_keys`, `csv`, `xlsx`, `column_formats`.
+  Загружает `config.json` по пути (по умолчанию — корень проекта). При ошибке или отсутствии файла возвращает конфиг по умолчанию с пустым **`files`**. Объединяет вложенные секции `csv` и `xlsx` с дефолтами (`DEFAULT_CSV`, `DEFAULT_XLSX`). Возвращает словарь с ключами: `input_dir`, `output_dir`, `files`, `path_separator`, `path_start`, `exclude_keys`, `include_only_keys`, `csv`, `xlsx`.
+
+- **`get_enabled_files_with_indices(config)`**  
+  Возвращает список кортежей `(имя_файла, индекс_в_config["files"])` только для записей с **`enabled`: true** (и без **`disabled`: true**). Индекс совпадает с позицией в полном массиве `files[]`, чтобы `get_file_options` и `get_sheet_options` брали ту же запись.
 
 - **`get_files_list(config)`**  
-  Возвращает список имён файлов для обработки: если задан массив `config["files"]` — из `files[].file`, иначе из `config["input_files"]`. Только имена файлов (без пути).
+  Список имён файлов для обработки — по сути имена из `get_enabled_files_with_indices` (без индексов).
 
-- **`get_file_options(config, file_index)`**  
-  Возвращает настройки разбора для файла с индексом `file_index`: path_start, path_starts, exclude_keys, exclude_keys_in_path, include_only_keys, column_order, output, sheet_name. Берутся из элемента `config["files"][file_index]` с подстановкой глобальных значений при отсутствии в элементе.
+- **`get_file_options(config, file_index, default_sheet_name)`**  
+  Настройки разбора для `config["files"][file_index]`: path_start, path_starts, exclude_keys, exclude_keys_in_path, column_order, output, sheet_name, объект `sheet_format` (результат `get_sheet_options` для XLSX).
 
 - **`get_sheet_options(config, file_index)`**  
-  Возвращает настройки листа XLSX для файла с индексом `file_index` из `config["xlsx"]["sheets"]`. Если листов меньше, чем файлов, повторяется первый лист с подстановкой имени. Возвращаемый словарь содержит `name`, `freeze_cell` (опционально — ячейка закрепления для этого листа), `columns`, `default_column_format`, `column_format`.
+  Настройки оформления листа: приоритет у вложенного **`config["files"][file_index]["sheet"]`**; поле **`name`** в результате берётся из **`sheet_name`** записи файла. Если `sheet` нет — используется **`config["xlsx"]["sheets"][file_index]`** (обратная совместимость). Словарь: `name`, `freeze_cell`, `columns`, `default_column_format`, `column_format`.
 
 ---
 
@@ -153,17 +156,30 @@
 
 ## Конфиг (config.json) — подробно с примерами
 
-Конфиг задаёт источники данных, правила разбора JSON и параметры вывода CSV/XLSX. Блок **`__comments`** программой не используется — это справочник по параметрам.
+Файл **`config.json`** содержит только рабочие данные (без блока **`__comments`** и без справочника **`column_formats`**): весь текст с пояснениями и допустимыми значениями параметров собран **в этом разделе README**.
+
+### Корень конфига: ключи верхнего уровня
+
+| Ключ | Назначение |
+|------|------------|
+| **input_dir** | Каталог с входными JSON (относительно корня проекта), например `"IN"`. |
+| **output_dir** | Каталог для CSV и общего XLSX, например `"OUT"`. |
+| **path_separator** | Строка-разделитель сегментов в имени колонки (часто `" - "`). |
+| **path_start** | Глобальная цепочка ключей старта разбора; переопределяется в **`files[].path_start`**. |
+| **exclude_keys** | Глобальный список исключаемых ключей/путей; переопределяется в **`files[].exclude_keys`**. |
+| **include_only_keys** | Если не пусто — в выход только перечисленные колонки (глобально для всех файлов без переопределения в `files`). |
+| **files** | Массив настроек по файлам: **`file`**, **`sheet_name`**, **`enabled`**, **`sheet`**, **`output`**, **`path_start`**, **`path_starts`**, **`exclude_keys`**, **`exclude_keys_in_path`**, **`column_order`** — см. подраздел ниже. |
+| **csv** | **`encoding`**, **`delimiter`**, **`lineterminator`** — см. таблицу CSV. |
+| **xlsx** | **`freeze_first_row`**, **`freeze_cell`**, **`freeze_pane_per_sheet`**, **`column_width_mode`**, **`auto_row_height`**, **`autofilter`**, **`sheets`** (устаревший глобальный список листов, если нет **`files[].sheet`**). |
 
 ---
 
-### Входные данные и разбор
+### Входные данные и разбор (глобальные поля)
 
 | Параметр | Тип | Примеры | Влияние на результат |
 |----------|-----|---------|----------------------|
-| **input_dir** | строка | `"IN"`, `"input"`, `"data/json"` | Папка, из которой читаются JSON-файлы по именам из `input_files`. |
+| **input_dir** | строка | `"IN"`, `"input"`, `"data/json"` | Папка, из которой читаются файлы по именам **`files[].file`** (только записи с **`enabled`: true**). |
 | **output_dir** | строка | `"OUT"`, `"export"` | Папка для CSV и одного XLSX. Создаётся при записи. |
-| **input_files** | массив строк | `["file1.json"]`, `["a.json","b.json"]` | Список имён файлов без пути. Обрабатываются только существующие в `input_dir`. |
 | **path_separator** | строка | `" - "`, `"|"`, `"."`, `"__"` | Разделитель между ключами в имени колонки. Например при пути `a.b.c` и разделителе `" - "` колонка будет `a - b - c`. |
 | **path_start** | массив строк | `[]`, `["data","body"]`, `["results","item"]` | Цепочка ключей, с которой начинать разбор. Имена колонок и данные строятся от этого поддерева; префикс «data - body -» в именах колонок не появляется. Если в записи путь не найден, строка разворачивается от корня записи. |
 | **exclude_keys** | массив строк | `[]`, `["photoData"]`, `["colorCode - secondary"]` | Ключи или полные пути (после path_start), которые не попадают в выход. По имени ключа исключается весь поддерево по этому ключу; по пути — только эта ветка. |
@@ -178,14 +194,16 @@
 
 ### Настройки по файлам (опционально)
 
-Если в конфиге задан массив **`files`**, список обрабатываемых файлов и часть настроек берутся из него (по одному элементу на файл). Если `files` не задан, используются глобальные `input_files`, `path_start`, `exclude_keys` и т.д., как раньше.
+Если в конфиге задан массив **`files`**, список **обрабатываемых** файлов строится только из записей с **`enabled`: true** (по умолчанию, если ключ не указан, запись считается включённой). Записи с **`enabled`: false** или **`disabled`: true** хранятся в конфиге, но не читаются из `input_dir` и не попадают в XLSX.
 
 Каждый элемент **`files[]`** может содержать:
 
 | Параметр | Примеры | Влияние |
 |----------|---------|---------|
+| **enabled** | `true`, `false` | `false` — пропустить файл. Альтернатива: **`disabled`: true**. |
 | **file** | `"profiles.json"` | Имя файла из input_dir (обязательное поле в элементе). |
 | **sheet_name** | `"Профили"`, `"Лист A"` | Имя листа в XLSX для этого файла (до 31 символа). Если не задано — из имени файла. |
+| **sheet** | объект | Оформление листа XLSX для этого файла: **`freeze_cell`**, **`columns`**, **`default_column_format`**, **`column_format`** (см. ниже). Имя листа в интерфейсе Excel — из **`sheet_name`**; поле **`name`** внутри `sheet` в JSON можно не дублировать (подставляется из `sheet_name`). |
 | **output** | `["csv"]`, `["xlsx"]`, `["csv","xlsx"]` | Какие выходы создавать: только CSV, только XLSX или оба (по умолчанию оба). |
 | **path_start** | `["data","body"]` | Стартовая цепочка ключей для этого файла (переопределяет глобальный path_start). |
 | **path_starts** | `[["data","body"],["data","body","absences"]]` | Несколько стартов: первый — источник строк, остальные — доп. данные мержатся в каждую строку с префиксом (например колонки `absences - isLong`, `absences - info`). |
@@ -193,18 +211,33 @@
 | **exclude_keys_in_path** | `[{"path":"full","keys":["info"]}, {"path":"agileManagers","keys":["id"]}]` | Исключать указанные ключи только внутри заданного пути. Работает и во вложенных объектах, и **внутри массивов объектов**: `path` — имя поля-массива (например `agileManagers`, `emails`), `keys` — поля элементов массива или вложенного объекта. Так можно убрать `id` только в `agileManagers`, оставив `id` в `agileTree`. |
 | **column_order** | `["empName","emails","jobTitle"]` | Порядок колонок: перечисленные элементы задают позиции. Элемент может быть **именем колонки** (точное совпадение) или **префиксом** — тогда в этот блок подтягиваются все колонки, начинающиеся с `префикс + " - "` (например `emails` → все `emails - address - (1)`, `emails - address - (2)` и т.д. в порядке (1),(2),(3)). Остальные колонки — после, с сохранением порядка по ключам. |
 
-**Пример `files`:**
+**Пример `files` с `enabled` и вложенным `sheet`:**
 
 ```json
 "files": [
   {
+    "enabled": true,
     "file": "profiles.json",
     "sheet_name": "Профили",
     "output": ["csv", "xlsx"],
     "path_starts": [["data", "body"], ["data", "body", "absences"]],
     "exclude_keys": ["photoData", "reactions", "colorCode"],
     "exclude_keys_in_path": [{"path": "full", "keys": ["info"]}],
-    "column_order": ["empName", "empFamilyName", "jobTitle"]
+    "column_order": ["empName", "empFamilyName", "jobTitle"],
+    "sheet": {
+      "freeze_cell": "D2",
+      "columns": [],
+      "default_column_format": { "number_format": "text", "width_min": 10, "width_max": 100, "wrap_text": true },
+      "column_format": { "gosbCode": { "number_format": "integer" } }
+    }
+  },
+  {
+    "enabled": false,
+    "file": "reserve.json",
+    "sheet_name": "Резерв",
+    "output": ["xlsx"],
+    "path_start": ["data"],
+    "sheet": { "freeze_cell": "A2", "columns": [], "default_column_format": {}, "column_format": {} }
   }
 ]
 ```
@@ -231,7 +264,7 @@
 |----------|---------|---------|
 | **freeze_first_row** | `true`, `false` | Если `true` и не задан `freeze_cell`, закрепление первой строки через ячейку `A2`. |
 | **freeze_cell** | `"A2"`, `"B1"`, `"B2"`, `""` | Ячейка-граница закрепления по умолчанию для всех листов. `A2` — закрепить первую строку, `B1` — первый столбец, `B2` — и то и другое. Пусто — используется логика freeze_first_row. |
-| **freeze_pane_per_sheet** | `[{"sheet_index":0,"cell":"B2"}]` | Опционально: переопределение закрепления по индексу листа. **Рекомендуется** задавать закрепление для каждого листа в **xlsx.sheets[]** через поле **freeze_cell** (например `"D2"`, `"F2"`); для листа без своего `freeze_cell` используется общий `freeze_cell`. |
+| **freeze_pane_per_sheet** | `[{"sheet_index":0,"cell":"B2"}]` | Опционально: переопределение закрепления по индексу листа в итоговом XLSX. **Рекомендуется** задавать **`freeze_cell`** в **`files[].sheet`** для каждого файла; для листа без своего `freeze_cell` используется общий `freeze_cell` из секции xlsx. |
 | **column_width_mode** | `"auto"`, `"minimum"`, `"maximum"` | **auto** — ширина по содержимому в пределах width_min..width_max из default_column_format; **minimum** — всегда width_min; **maximum** — всегда width_max. |
 | **auto_row_height** | `true`, `false` | При `true` высота строк подбирается по содержимому (с учётом wrap_text). |
 | **autofilter** | `true`, `false` | Включение автофильтра по первой строке. |
@@ -240,12 +273,15 @@
 
 ### XLSX — листы и форматирование
 
-- **xlsx.sheets** — массив настроек листов. Каждый элемент (по порядку соответствует файлу из `files[]`):
-  - **name** — отображаемое имя листа (до 31 символа). Пример: `"Профили"`, `"Лист1"`.
-  - **freeze_cell** — опционально. Ячейка закрепления для **этого** листа (например `"D2"`, `"F2"`). Если не задано — используется общий `freeze_cell` из секции xlsx (или A2 при `freeze_first_row`). Задаётся без индексов, по позиции листа в массиве sheets.
+- **`files[].sheet`** (основной способ) — объект настроек листа для **этого же** элемента `files[]` (рядом с `file`, `sheet_name`, `path_start` и т.д.):
+  - **freeze_cell** — опционально. Ячейка закрепления для листа (например `"D2"`, `"F2"`). Если не задано — общий `freeze_cell` из секции xlsx (или A2 при `freeze_first_row`).
   - **columns** — список колонок для листа; пусто = все колонки.
   - **default_column_format** — формат по умолчанию для всех колонок листа (см. таблицу ниже).
-  - **column_format** — объект «имя колонки → настройки», переопределяет default для указанных колонок. Пример: `{"gosbCode":{"number_format":"integer"},"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"}}`.
+  - **column_format** — объект «имя колонки → настройки». Пример: `{"gosbCode":{"number_format":"integer"},"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"}}`.
+
+- **`xlsx.sheets`** (устаревший способ) — глобальный массив; используется только если у записи `files[i]` **нет** непустого объекта **`sheet`**, тогда берётся `xlsx.sheets[i]` по индексу. В новых конфигах `xlsx.sheets` может быть пустым массивом `[]`.
+
+Имена полей в следующей таблице — это ключи внутри **`files[].sheet.default_column_format`** и **`files[].sheet.column_format`** (или устаревших аналогов в **`xlsx.sheets[]`**).
 
 **Параметры default_column_format и column_format**
 
@@ -275,11 +311,11 @@
 | **thousands_separator** | общее | `" "` | Разделитель тысяч (зарезервировано). |
 | **date_format** | общее | `"DD.MM.YYYY"`, `"YYYY-MM-DD"` | При `number_format: "date"` в column_format — формат отображения даты в XLSX. |
 
-**Пример фрагмента конфига листа с форматированием:**
+**Пример фрагмента вложенного `files[].sheet` с форматированием** (имя листа задаётся в **`sheet_name`** у записи файла):
 
 ```json
-"sheets": [{
-  "name": "Профили",
+"sheet": {
+  "freeze_cell": "D2",
   "columns": [],
   "default_column_format": {
     "number_format": "text",
@@ -303,12 +339,12 @@
     "groupingCode": { "number_format": "integer" },
     "birthday": { "number_format": "date", "date_format": "YYYY-MM-DD" }
   }
-}]
+}
 ```
 
-В результате: первый лист будет называться «Профили», заголовки — жирные, с чёрным текстом и светло-салатовой заливкой, выравнивание заголовка и данных по горизонтали/вертикали из конфига; колонки `gosbCode` и `groupingCode` в XLSX отображаются как целые числа; колонка `birthday` — как дата в формате YYYY-MM-DD (значение парсится из строки или datetime); ширина колонок — по режиму column_width_mode в пределах 10..100.
+В результате: при `sheet_name`: `"Профили"` лист в XLSX называется «Профили»; заголовки и данные оформляются по `default_column_format`; колонки `gosbCode` и `groupingCode` — как целые числа; `birthday` — как дата; ширина — по режиму `column_width_mode` в пределах из конфига.
 
-**Закрепление по листам:** в каждом элементе `sheets[]` можно задать `"freeze_cell": "D2"` (или другую ячейку) — для этого листа будет использовано именно это закрепление; для листа без `freeze_cell` берётся общий `freeze_cell` из секции xlsx.
+**Закрепление по листам:** в **`files[].sheet`** задайте `"freeze_cell": "D2"` (или другую ячейку); при отсутствии — общий `freeze_cell` из секции xlsx.
 
 **Обработка исключений при форматировании колонок:** если для ячейки задан формат колонки (`number_format: "integer"` или `"date"`), но значение не удаётся преобразовать в этот тип (текст в числовой колонке, неверный формат даты и т.п.), ячейка записывается как значение по умолчанию (текст) и со стилем по умолчанию для данных, без применения формата колонки. «Неподходящие» значения отображаются как есть, без искажения.
 
@@ -322,7 +358,7 @@
 python main.py
 ```
 
-Конфиг по умолчанию: `./config.json`. Если в конфиге задан массив **`files`**, обрабатываются только файлы из `files[].file` (существующие в `input_dir`); иначе — из `input_files`.
+Конфиг по умолчанию: `./config.json`. Если задан массив **`files`**, в работу попадают только записи с **`enabled`: true** и существующим файлом `input_dir` / `files[].file`.
 
 Тесты развёртывания JSON:
 
@@ -334,10 +370,20 @@ python src/Tests/test_flattener.py
 
 ## История версий
 
+- **0.4.4**
+  - Из **`config.json`** удалены блок **`__comments`** и справочный объект **`column_formats`** (description/options); описание всех параметров перенесено и структурировано в **README** (корневые ключи, таблицы CSV/XLSX).
+  - **`load_config`** больше не возвращает ключ **`column_formats`**.
+
+- **0.4.3**
+  - **Конфиг по файлам:** в каждой записи `files[]` вложенный объект **`sheet`** (freeze_cell, columns, default_column_format, column_format) — настройки листа рядом с `file` и `sheet_name`; глобальный **`xlsx.sheets`** опционален (fallback по индексу для старых конфигов).
+  - **`enabled` / `disabled`:** обрабатываются только записи с `enabled: true` (по умолчанию включено); `enabled: false` или `disabled: true` оставляет настройки в конфиге без обработки.
+  - **config_loader:** `get_enabled_files_with_indices()`, обновлены `get_files_list`, `get_sheet_options`. **main.py:** итерация по включённым файлам с сохранением индекса в полном массиве `files`.
+  - В корневой `config.json` перенесены профили из `ToDo/config.json` как дополнительные записи с **`enabled`: false** (шаблоны без запуска до включения).
+
 - **0.4.2**
   - **Формат даты в XLSX:** в column_format и default_column_format добавлены `number_format: "date"` и `date_format` (YYYY-MM-DD, DD.MM.YYYY и т.д.). Значение ячейки преобразуется в числовой формат даты Excel; поддерживаются строки ISO, dd.mm.yyyy, dd/mm/yyyy и объекты datetime. При неудачном разборе — запись как текст (аналогично integer). В xlsx_exporter: _to_date_value, _date_format_to_excel, пользовательский numFmt и стиль даты в styles.xml.
   - **column_order с префиксом:** элемент column_order может быть префиксом (например `emails`): тогда в эту позицию подтягиваются все колонки, начинающиеся с `префикс + " - "` (emails - address - (1), (2) и т.д.), в порядке по ключам и (1),(2),(3). Позволяет упорядочивать блоки полей с несколькими значениями без перечисления каждой колонки.
-  - **Закрепление по листам в xlsx.sheets:** для каждого листа в элементе sheets[] можно задать **freeze_cell** (например "D2", "F2"); для листа без своего freeze_cell используется общий freeze_cell. Рекомендуемый способ вместо freeze_pane_per_sheet по индексам. get_sheet_options возвращает freeze_cell; main.py формирует freeze_cell_per_sheet из настроек листа.
+  - **Закрепление по листам:** в каждом элементе **xlsx.sheets[]** (тогдашний способ) можно задать **freeze_cell**; с версии 0.4.3 рекомендуется **files[].sheet.freeze_cell**. get_sheet_options возвращает freeze_cell; main.py формирует freeze_cell_per_sheet.
   - Тест test_column_order_with_prefix.
 
 - **0.4.1**
@@ -354,7 +400,7 @@ python src/Tests/test_flattener.py
   - Исключение ключей только внутри пути (`exclude_keys_in_path`): например убрать поле `info` только внутри раздела `full` (и внутри массивов объектов с таким путём).
   - Порядок колонок (`column_order`): указанные поля идут первыми на листе.
   - Разбор массивов объектов: колонки с индексом (1), (2), … по одному значению на колонку.
-  - config_loader: get_files_list(), get_file_options(). worker: file_index, запись CSV только при "csv" в output. main: сбор листов только при "xlsx" в output.
+  - config_loader: get_files_list(), get_file_options(), get_sheet_options. worker: file_index, запись CSV только при "csv" в output. main: сбор листов только при "xlsx" в output. (С 0.4.3: get_enabled_files_with_indices, files[].sheet, enabled.)
 
 - **0.3.1**
   - Обработка исключений при форматировании колонок: если значение не преобразуется в указанный тип (например integer или в будущем date), ячейка записывается как значение по умолчанию (текст) и со стилем по умолчанию, без применения формата колонки. Документация обновлена: правило fallback и описание _to_integer_value.
@@ -364,7 +410,7 @@ python src/Tests/test_flattener.py
   - Документация: подробное описание работы программы, всех функций и конфига с примерами и вариантами значений.
 
 - **0.2.0**
-  - Закрепление областей по ячейке: freeze_cell и freeze_pane_per_sheet. Формат колонок: default_column_format и column_format (в т.ч. number_format: integer). Блок __comments в config.json. Режимы ширины колонок (column_width_mode), авто-высота строк (auto_row_height).
+  - Закрепление областей по ячейке: freeze_cell и freeze_pane_per_sheet. Формат колонок: default_column_format и column_format (в т.ч. number_format: integer). Режимы ширины колонок (column_width_mode), авто-высота строк (auto_row_height). (Позже описание параметров вынесено в README, см. 0.4.4.)
 
 - **0.1.0**
   - Универсальный flatten JSON, path_start, exclude_keys, include_only_keys. Экспорт в CSV и один XLSX с листом на файл. Закрепление первой строки, автофильтр, формат «целое число». Логирование, параллельная обработка, только stdlib.

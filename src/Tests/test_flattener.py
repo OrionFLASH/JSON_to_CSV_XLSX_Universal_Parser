@@ -66,6 +66,57 @@ def test_path_start() -> None:
     assert rows[0]["a"] == 1 and rows[0]["b"] == 2
 
 
+def test_extract_rows_multi_root_keys() -> None:
+    """Корень — объект с несколькими ключами, у каждого значение — список объектов: все списки объединяются."""
+    data = {
+        "t1": [{"id": "a", "n": 1}],
+        "t2": [{"id": "b", "n": 2}, {"id": "c", "n": 3}],
+    }
+    rows = extract_rows(data)
+    assert len(rows) == 3
+    assert rows[0]["id"] == "a" and rows[2]["id"] == "c"
+
+
+def test_path_start_ends_with_leaders_list() -> None:
+    """path_start заканчивается массивом leaders внутри tournament: одна строка = один лидер."""
+    data = {
+        "123": [
+            {
+                "success": True,
+                "body": {
+                    "tournament": {
+                        "name": "T1",
+                        "leaders": [
+                            {"place": 1, "user": {"id": 10}},
+                            {"place": 2, "user": {"id": 20}},
+                        ],
+                    },
+                    "source": "api",
+                },
+            }
+        ],
+        "456": [
+            {
+                "success": True,
+                "body": {
+                    "tournament": {
+                        "name": "T2",
+                        "leaders": [{"place": 1, "user": {"id": 99}}],
+                    },
+                },
+            }
+        ],
+    }
+    rows, columns = flatten_json_data(
+        data, path_sep=" - ", path_start=["body", "tournament", "leaders"]
+    )
+    assert len(rows) == 3
+    assert rows[0]["place"] == 1
+    assert rows[0]["user - id"] == 10
+    assert rows[2]["place"] == 1 and rows[2]["user - id"] == 99
+    assert "place" in columns and "user - id" in columns
+
+
 def test_exclude_keys() -> None:
     """exclude_keys: указанные ключи не попадают в выход."""
     data = {"results": [{"a": 1, "b": 2, "secret": 999}]}
@@ -210,9 +261,11 @@ def test_column_order_with_prefix() -> None:
 if __name__ == "__main__":
     test_extract_rows_list()
     test_extract_rows_results()
+    test_extract_rows_multi_root_keys()
     test_flatten_row_nested()
     test_flatten_json_data()
     test_path_start()
+    test_path_start_ends_with_leaders_list()
     test_exclude_keys()
     test_exclude_keys_by_path()
     test_include_only_keys()

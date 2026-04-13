@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Точка входа: универсальный парсер JSON в CSV и XLSX.
-Читает config.json (список файлов в files), обрабатывает каждый файл из IN,
-пишет CSV по одному на файл в OUT и один общий XLSX с листом на каждый файл.
+Читает config.json: обрабатываются только записи files[] с enabled: true (остальные хранятся в конфиге, но пропускаются).
+Пишет CSV по одному на файл в OUT и один общий XLSX с листом на каждый обработанный файл.
 Логирование: INFO — основные этапы, DEBUG — детали (список файлов, режим пула и т.д.).
 """
 
@@ -32,7 +32,7 @@ def _process_one_file_standalone(
     """
     Обёртка для вызова из дочернего процесса (должна быть на уровне модуля для pickle).
     Возвращает (имя_листа, строки, колонки). Запись CSV выполняется внутри worker при output "csv".
-    file_index — индекс файла для настроек config.files[file_index].
+    file_index — индекс записи в config.files (тот же, что у включённого файла в полном массиве files).
     """
     json_path = Path(json_path_str)
     base_dir = Path(base_dir_str)
@@ -56,14 +56,20 @@ def main() -> None:
     config = config_loader.load_config(base_dir / "config.json")
     input_dir = Path(config["input_dir"])
     output_dir = Path(config["output_dir"])
-    file_names = config_loader.get_files_list(config)
+    enabled_files = config_loader.get_enabled_files_with_indices(config)
     # Таймштамп для имён выходных файлов (год, месяц, день — час, минуты)
     run_timestamp = datetime.now().strftime(OUTPUT_TIMESTAMP_FMT)
     config["_run_timestamp"] = run_timestamp
-    log.debug("Конфиг загружен: input_dir=%s, output_dir=%s, файлов в списке=%s, таймштамп=%s [def: main]", input_dir, output_dir, len(file_names), run_timestamp)
+    log.debug(
+        "Конфиг загружен: input_dir=%s, output_dir=%s, включённых файлов=%s, таймштамп=%s [def: main]",
+        input_dir,
+        output_dir,
+        len(enabled_files),
+        run_timestamp,
+    )
 
-    if not file_names:
-        log.warning("В конфиге не заданы files или список пуст; завершение [def: main]")
+    if not enabled_files:
+        log.warning("В конфиге нет включённых записей files (enabled); завершение [def: main]")
         return
 
     in_dir_abs = base_dir / input_dir
@@ -71,16 +77,16 @@ def main() -> None:
         log.error("Папка входных файлов не найдена: %s [def: main]", in_dir_abs)
         return
 
-    # Формируем список существующих файлов по именам из config.files (с индексом для настроек по файлу)
+    # Существующие файлы: имя из конфига и индекс записи в config.files (для path_start, sheet и т.д.)
     to_process: List[Tuple[Path, int]] = []
-    for idx, name in enumerate(file_names):
+    for name, file_index in enabled_files:
         p = in_dir_abs / name
         if p.is_file():
-            to_process.append((p, idx))
+            to_process.append((p, file_index))
         else:
             log.warning("Файл из конфига не найден: %s [def: main]", p)
-    if len(to_process) < len(file_names):
-        log.info("В конфиге файлов: %s, найдено в %s: %s [def: main]", len(file_names), input_dir, len(to_process))
+    if len(to_process) < len(enabled_files):
+        log.info("В конфиге включённых: %s, найдено в %s: %s [def: main]", len(enabled_files), input_dir, len(to_process))
     log.debug("К обработке подготовлено файлов: %s [def: main]", len(to_process))
 
     if not to_process:
@@ -139,7 +145,7 @@ def main() -> None:
         column_formats_per_sheet.append(sheet_opts.get("column_format") or {})
         default_formats_per_sheet.append(sheet_opts.get("default_column_format") or {})
     has_any_format = any(cf for cf in column_formats_per_sheet) or any(df for df in default_formats_per_sheet)
-    # Закрепление: по умолчанию freeze_cell (или A2 при freeze_first_row); для каждого листа — из xlsx.sheets[].freeze_cell
+    # Закрепление: по умолчанию freeze_cell (или A2 при freeze_first_row); для каждого листа — из files[].sheet.freeze_cell (или устар. xlsx.sheets)
     default_freeze = (xlsx_opts.get("freeze_cell") or "").strip() or ("A2" if xlsx_opts.get("freeze_first_row", True) else None)
     freeze_cell = default_freeze
     freeze_pane_per_sheet = xlsx_opts.get("freeze_pane_per_sheet") or []
