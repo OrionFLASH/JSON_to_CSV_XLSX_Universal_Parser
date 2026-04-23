@@ -14,8 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# Формат таймштампа в именах выходных файлов: ГГГГММДД-ЧЧММ (год, месяц, день — час, минуты)
-OUTPUT_TIMESTAMP_FMT = "%Y%m%d-%H%M"
+# Формат таймштампа в именах выходных файлов по умолчанию: ГГГГММДД-ЧЧММ
+DEFAULT_OUTPUT_TIMESTAMP_FMT = "%Y%m%d-%H%M"
 
 from src import config_loader
 from src import logging_setup
@@ -57,15 +57,23 @@ def main() -> None:
     input_dir = Path(config["input_dir"])
     output_dir = Path(config["output_dir"])
     enabled_files = config_loader.get_enabled_files_with_indices(config)
-    # Таймштамп для имён выходных файлов (год, месяц, день — час, минуты)
-    run_timestamp = datetime.now().strftime(OUTPUT_TIMESTAMP_FMT)
+    # Пользовательские настройки имени выходного файла и формата времени из config.json
+    output_file_base_name = str(config.get("output_file_base_name") or "output").strip() or "output"
+    output_timestamp_format = str(config.get("output_timestamp_format") or DEFAULT_OUTPUT_TIMESTAMP_FMT).strip() or DEFAULT_OUTPUT_TIMESTAMP_FMT
+    # Защита от недопустимых символов в имени файла
+    output_file_base_name = output_file_base_name.replace("/", "_").replace("\\", "_")
+
+    # Таймштамп для имён выходных файлов (формат берётся из config.json)
+    run_timestamp = datetime.now().strftime(output_timestamp_format)
     config["_run_timestamp"] = run_timestamp
     log.debug(
-        "Конфиг загружен: input_dir=%s, output_dir=%s, включённых файлов=%s, таймштамп=%s [def: main]",
+        "Конфиг загружен: input_dir=%s, output_dir=%s, включённых файлов=%s, таймштамп=%s, output_file_base_name=%s, output_timestamp_format=%s [def: main]",
         input_dir,
         output_dir,
         len(enabled_files),
         run_timestamp,
+        output_file_base_name,
+        output_timestamp_format,
     )
 
     if not enabled_files:
@@ -133,7 +141,7 @@ def main() -> None:
         return
 
     # Запись одного XLSX со всеми листами (имя с таймштампом)
-    xlsx_path = base_dir / output_dir / f"output_{run_timestamp}.xlsx"
+    xlsx_path = base_dir / output_dir / f"{output_file_base_name}_{run_timestamp}.xlsx"
     xlsx_opts = config.get("xlsx", {})
     # Форматы колонок по листам: для каждого листа — словарь {имя_колонки: {number_format: "integer", ...}}
     # default_column_format — формат по умолчанию для всех колонок, кроме перечисленных в column_format

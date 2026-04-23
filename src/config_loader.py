@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 # Значения по умолчанию при отсутствии конфига или ключей
 DEFAULT_INPUT_DIR = "IN"
 DEFAULT_OUTPUT_DIR = "OUT"
+DEFAULT_OUTPUT_FILE_BASE_NAME = "output"
+DEFAULT_OUTPUT_TIMESTAMP_FORMAT = "%Y%m%d-%H%M"
 DEFAULT_PATH_SEP = " - "
 DEFAULT_CSV = {
     "encoding": "utf-8-sig",
@@ -47,6 +49,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         return {
             "input_dir": DEFAULT_INPUT_DIR,
             "output_dir": DEFAULT_OUTPUT_DIR,
+            "output_file_base_name": DEFAULT_OUTPUT_FILE_BASE_NAME,
+            "output_timestamp_format": DEFAULT_OUTPUT_TIMESTAMP_FORMAT,
             "files": [],
             "path_separator": DEFAULT_PATH_SEP,
             "path_start": [],
@@ -68,6 +72,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         return {
             "input_dir": DEFAULT_INPUT_DIR,
             "output_dir": DEFAULT_OUTPUT_DIR,
+            "output_file_base_name": DEFAULT_OUTPUT_FILE_BASE_NAME,
+            "output_timestamp_format": DEFAULT_OUTPUT_TIMESTAMP_FORMAT,
             "files": [],
             "path_separator": DEFAULT_PATH_SEP,
             "path_start": [],
@@ -84,6 +90,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     return {
         "input_dir": data.get("input_dir", DEFAULT_INPUT_DIR),
         "output_dir": data.get("output_dir", DEFAULT_OUTPUT_DIR),
+        "output_file_base_name": data.get("output_file_base_name", DEFAULT_OUTPUT_FILE_BASE_NAME),
+        "output_timestamp_format": data.get("output_timestamp_format", DEFAULT_OUTPUT_TIMESTAMP_FORMAT),
         "files": data.get("files", []),
         "path_separator": data.get("path_separator", DEFAULT_PATH_SEP),
         "path_start": data.get("path_start", []),

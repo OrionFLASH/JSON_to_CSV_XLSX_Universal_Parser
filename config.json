@@ -93,7 +93,7 @@
                     {"path":"phones","keys":["id","main","hidden"]}
                   ],
             "column_order": ["tabNum","tn","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
-            "enabled": false,
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "F2",
                     "columns": [],
@@ -122,7 +122,8 @@
                               "data_underline": false
                             },
                     "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
-                  }
+                  },
+            "key_fields": [{"name":"ТАБ","sources":["tabNum","tn"],"default":"-"}]
           },
       {
             "file": "addressbook_empInfoFull_ALPHA_1776927940710.json",
@@ -139,7 +140,7 @@
                   ],
             "exclude_keys_in_path": [
                     {"path":"agileManagers","keys":["id"]},
-                    {"path":"emails","keys":["domain"]},
+                    {"path":"emails","keys":["domain","id","isMain"]},
                     {"path":"newPhoneNumber","keys":["activatedAt"]},
                     {"path":"absences - info","keys":["startDate","endDate","typeId","daysRemains","isLong","isAbsent"]},
                     {"path":"absences","keys":["customAbsences","commonAbsence","isLong"]},
@@ -213,7 +214,7 @@
             "file": "addressbook_empInfoFull_ALPHA_1776948090955.json",
             "sheet_name": "addressboo",
             "output": ["xlsx"],
-            "path_start": ["cards","empInfoFull","data"],
+            "path_start": [],
             "exclude_keys": [
                     "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId", "skills", "zamId", "isAgile",
                     "isFos", "tabel", "profileLink", "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager",
@@ -224,7 +225,7 @@
                   ],
             "exclude_keys_in_path": [],
             "column_order": ["tabNum","input","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
-            "enabled": false,
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "B2",
                     "columns": [],
@@ -253,13 +254,40 @@
                               "data_underline": false
                             },
                     "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  },
+            "row_builder": {
+                    "base_path": ["cards","*","empInfoFull","data"],
+                    "key_aliases": {"employeeId":["empId"],"empId":["employeeId"]},
+                    "carry_root_fields": [
+                              {"path":"input","as":"input"},
+                              {"path":"searchText","as":"searchText"},
+                              {"path":"error","as":"error"},
+                              {"path":"searchStats.totalPages","as":"searchTotalPages"},
+                              {"path":"searchStats.totalHits","as":"searchTotalHits"},
+                              {"path":"searchStats.uniqueEmployeeIds","as":"searchUniqueEmployeeIds"},
+                              {"path":"searchStats.stopReason","as":"searchStopReason"}
+                            ],
+                    "joins": [
+                              {
+                                          "path": ["search","data","hits","*"],
+                                          "match": [{"left":"empId","right":"employeeId"}],
+                                          "prefix": "searchHit",
+                                          "mode": "first_match"
+                                        },
+                              {
+                                          "path": ["searchPages","*","data","hits","*"],
+                                          "match": [{"left":"empId","right":"employeeId"}],
+                                          "prefix": "searchPageHit",
+                                          "mode": "first_match"
+                                        }
+                            ]
                   }
           },
       {
             "file": "addressbook_empInfoFull_ALPHA_1776948611170.json",
             "sheet_name": "addressbo1",
             "output": ["xlsx"],
-            "path_start": ["cards","empInfoFull","data"],
+            "path_start": [],
             "exclude_keys": [
                     "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId",
                     "isAgile", "isFos", "tabel", "profileLink", "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager",
@@ -270,7 +298,7 @@
                   ],
             "exclude_keys_in_path": [],
             "column_order": ["tabNum","input","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
-            "enabled": false,
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "B2",
                     "columns": [],
@@ -299,17 +327,63 @@
                               "data_underline": false
                             },
                     "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  },
+            "row_builder": {
+                    "base_path": ["cards","*","empInfoFull","data"],
+                    "key_aliases": {"employeeId":["empId"],"empId":["employeeId"]},
+                    "carry_root_fields": [
+                              {"path":"input","as":"input"},
+                              {"path":"searchText","as":"searchText"},
+                              {"path":"error","as":"error"},
+                              {"path":"searchStats.totalPages","as":"searchTotalPages"},
+                              {"path":"searchStats.totalHits","as":"searchTotalHits"},
+                              {"path":"searchStats.uniqueEmployeeIds","as":"searchUniqueEmployeeIds"},
+                              {"path":"searchStats.stopReason","as":"searchStopReason"}
+                            ],
+                    "joins": [
+                              {
+                                          "path": ["search","data","hits","*"],
+                                          "match": [{"left":"empId","right":"employeeId"}],
+                                          "prefix": "searchHit",
+                                          "mode": "first_match"
+                                        },
+                              {
+                                          "path": ["searchPages","*","data","hits","*"],
+                                          "match": [{"left":"empId","right":"employeeId"}],
+                                          "prefix": "searchPageHit",
+                                          "mode": "first_match"
+                                        }
+                            ]
                   }
           },
       {
             "file": "addressbook_empInfoFull_ALPHA_1776948628252.json",
             "sheet_name": "addressbo2",
             "output": ["xlsx"],
-            "path_start": ["cards","empInfoFull","data"],
-            "exclude_keys": [],
-            "exclude_keys_in_path": [],
-            "column_order": ["input"],
-            "enabled": false,
+            "path_start": [],
+            "exclude_keys": [
+                    "photoData", "reactions", "colorCode", "isSuperUser", "source", "badges", "carNumber", "comment", "empId",
+                    "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId", "isAgile", "isFos", "tabel", "profileLink",
+                    "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager", "addressIsFromAsun", "agileRoles2", "hasSec",
+                    "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop", "outText", "responsibility", "secretaries",
+                    "secretaryChiefs", "allMobilesHidden", "innerPhoneState", "dirId", "fos", "remoteDays", "remoteEnd",
+                    "remoteStart", "remoteType", "agileManagers", "agileTree", "zamFIO", "empAddress", "empPlace", "agileRoles"
+                  ],
+            "exclude_keys_in_path": [
+                    {"path":"agileManagers","keys":["id"]},
+                    {"path":"emails","keys":["domain","id","isMain"]},
+                    {"path":"newPhoneNumber","keys":["activatedAt"]},
+                    {"path":"absences - info","keys":["startDate","endDate","typeId","daysRemains","isLong","isAbsent"]},
+                    {"path":"absences","keys":["customAbsences","commonAbsence","isLong"]},
+                    {"path":"fos","keys":["fosId","fosDirId","id"]},
+                    {"path":"fosDirData","keys":["fosDirId"]},
+                    {"path":"agileTree","keys":["id"]},
+                    {"path":"deptTree","keys":["id"]},
+                    {"path":"emails","keys":["id","type","isMain"]},
+                    {"path":"phones","keys":["id","main","hidden"]}
+                  ],
+            "column_order": ["input","searchText","error","searchStats","search","searchPages","cards"],
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "B2",
                     "columns": [],
@@ -344,7 +418,7 @@
             "file": "addressbook_empInfoFull_only_ALPHA_1776948614278.json",
             "sheet_name": "addressbo3",
             "output": ["xlsx"],
-            "path_start": ["cards","empInfoFull","data"],
+            "path_start": [],
             "exclude_keys": [
                     "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId",
                     "isAgile", "isFos", "tabel", "profileLink", "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager",
@@ -354,8 +428,8 @@
                     "agileRoles"
                   ],
             "exclude_keys_in_path": [],
-            "column_order": ["tabNum","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
-            "enabled": false,
+            "column_order": ["employeeId","tabNum","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "B2",
                     "columns": [],
@@ -384,17 +458,26 @@
                               "data_underline": false
                             },
                     "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  },
+            "row_builder": {
+                    "base_path": ["empInfoFull","data"],
+                    "key_aliases": {"employeeId":["empId"],"empId":["employeeId"]},
+                    "carry_root_fields": [{"path":"employeeId","as":"employeeId"}],
+                    "joins": []
                   }
           },
       {
             "file": "addressbook_search_only_ALPHA_1776948612614.json",
             "sheet_name": "addressbo4",
             "output": ["xlsx"],
-            "path_start": ["cards","empInfoFull","data"],
+            "path_start": [],
             "exclude_keys": ["comment","isAgile","isFos","tags","isFavorite","remoteType"],
             "exclude_keys_in_path": [],
-            "column_order": ["input"],
-            "enabled": false,
+            "column_order": [
+                    "input", "searchText", "asNumber", "employeeId", "fullName", "positionName", "departmentName", "email",
+                    "phoneNumber"
+                  ],
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "B2",
                     "columns": [],
@@ -423,17 +506,38 @@
                               "data_underline": false
                             },
                     "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  },
+            "row_builder": {
+                    "base_path": ["searchPages","*","data","hits","*"],
+                    "key_aliases": {"employeeId":["empId"],"empId":["employeeId"]},
+                    "carry_root_fields": [
+                              {"path":"input","as":"input"},
+                              {"path":"searchText","as":"searchText"},
+                              {"path":"asNumber","as":"asNumber"},
+                              {"path":"searchStats.totalPages","as":"searchTotalPages"},
+                              {"path":"searchStats.totalHits","as":"searchTotalHits"},
+                              {"path":"searchStats.uniqueEmployeeIds","as":"searchUniqueEmployeeIds"},
+                              {"path":"searchStats.stopReason","as":"searchStopReason"}
+                            ],
+                    "joins": [
+                              {
+                                          "path": ["search","data","hits","*"],
+                                          "match": [{"left":"employeeId","right":"employeeId"}],
+                                          "prefix": "searchHit",
+                                          "mode": "first_match"
+                                        }
+                            ]
                   }
           },
       {
             "file": "addressbook_search_only_ALPHA_1776948629560.json",
             "sheet_name": "addressbo5",
             "output": ["xlsx"],
-            "path_start": ["cards","empInfoFull","data"],
+            "path_start": [],
             "exclude_keys": [],
             "exclude_keys_in_path": [],
-            "column_order": ["input"],
-            "enabled": false,
+            "column_order": ["input","searchText","asNumber","searchStats","search","searchPages"],
+            "enabled": true,
             "sheet": {
                     "freeze_cell": "B2",
                     "columns": [],
