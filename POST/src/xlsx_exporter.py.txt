@@ -24,6 +24,10 @@ def _escape(s: str) -> str:
 
 def _excel_col(i: int) -> str:
     """Преобразует индекс колонки (0-based) в буквенный номер Excel: 0->A, 1->B, ..., 26->AA."""
+    # Защита от отрицательных индексов: такое возможно для пустого набора колонок.
+    # В этом случае используем первую колонку A, чтобы не попасть в бесконечный цикл.
+    if i < 0:
+        return "A"
     result = []
     while True:
         result.append(chr(ord("A") + (i % 26)))
@@ -363,7 +367,12 @@ def write_xlsx(
     ) -> str:
         """Собирает XML одного листа. header_style_idx — стиль первой строки; data_style_idx — стиль ячеек данных (0 = без стиля)."""
         root = ET.Element("worksheet", xmlns=ns)
-        dim = f"A1:{_excel_col(len(columns) - 1)}{len(rows) + 1}"
+        # Для пустого набора колонок оставляем минимальный диапазон A1,
+        # иначе вычисляем реальный прямоугольник данных.
+        if columns:
+            dim = f"A1:{_excel_col(len(columns) - 1)}{len(rows) + 1}"
+        else:
+            dim = "A1"
         ET.SubElement(root, "dimension", ref=dim)
         sheetViews = ET.SubElement(root, "sheetViews")
         sheetView = ET.SubElement(sheetViews, "sheetView", workbookViewId="0")
