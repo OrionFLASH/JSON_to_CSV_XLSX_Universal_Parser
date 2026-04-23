@@ -42,8 +42,9 @@
 1. **Чтение конфига** — из `config.json` загружаются пути (`input_dir`, `output_dir`), список файлов из массива `files[]` (только записи с **`enabled`: true**), параметры разбора и экспорта (CSV, XLSX).
 2. **Обработка каждого файла** (параллельно или последовательно):
    - JSON читается из `input_dir`/`имя_файла`;
-   - определяется массив «строк» (записей) — см. раздел про `extract_rows`;
+   - определяется массив «строк» (записей): либо стандартно через `extract_rows`, либо через декларативный `row_builder` (join по ключам между ветками JSON);
    - каждая запись разворачивается в плоский словарь (flatten) с учётом `path_start`/`path_starts`, `exclude_keys`, `exclude_keys_in_path`, `include_only_keys`;
+   - при наличии `key_fields` вычисляются дополнительные «ключевые» колонки с цепочками fallback (`sources`) и значением по умолчанию (`default`);
    - формируется общий список колонок по всем строкам (порядок: по ключам, внутри массива объектов — (1), (2), (3)…);
    - таблица записывается в CSV в `output_dir` с именем `{имя_файла}_{таймштамп}.csv`;
    - для XLSX возвращаются данные листа: имя листа, строки, колонки.
@@ -99,7 +100,7 @@
   Список имён файлов для обработки — по сути имена из `get_enabled_files_with_indices` (без индексов).
 
 - **`get_file_options(config, file_index, default_sheet_name)`**  
-  Настройки разбора для `config["files"][file_index]`: path_start, path_starts, exclude_keys, exclude_keys_in_path, column_order, output, sheet_name, объект `sheet_format` (результат `get_sheet_options` для XLSX).
+  Настройки разбора для `config["files"][file_index]`: path_start, path_starts, exclude_keys, exclude_keys_in_path, column_order, `key_fields`, `row_builder`, output, sheet_name, объект `sheet_format` (результат `get_sheet_options` для XLSX).
 
 - **`get_sheet_options(config, file_index)`**  
   Настройки оформления листа: приоритет у вложенного **`config["files"][file_index]["sheet"]`**; поле **`name`** в результате берётся из **`sheet_name`** записи файла. Если `sheet` нет — используется **`config["xlsx"]["sheets"][file_index]`** (обратная совместимость). Словарь: `name`, `freeze_cell`, `columns`, `default_column_format`, `column_format`.
@@ -115,10 +116,14 @@
 - **`flatten_row(row, path_sep, exclude_keys, exclude_keys_in_path)`**  
   Разворачивает один объект (словарь) в плоский словарь «имя колонки → значение». Имя колонки = путь ключей через `path_sep` (например `"key1 - key2"`). Рекурсивно обходит вложенные объекты и массивы; скаляры записываются в ячейку, массивы примитивов — в строку через запятую, **массивы объектов** — в отдельные колонки с суффиксом ` - (1)`, ` - (2)` и т.д. Ключи из `exclude_keys` (по имени или по полному пути) пропускаются. **`exclude_keys_in_path`** — список правил `{"path": "имя_пути", "keys": ["key1", "key2"]}`: указанные ключи исключаются только внутри этого пути (в т.ч. внутри элементов массива объектов с таким именем, например `id` только в `agileManagers`, но не в `agileTree`).
 
-- **`flatten_json_data(data, path_sep, path_start, path_starts, exclude_keys, exclude_keys_in_path, include_only_keys, column_order)`**  
+- **`flatten_json_data(data, path_sep, path_start, path_starts, exclude_keys, exclude_keys_in_path, include_only_keys, column_order, key_fields, row_builder)`**  
   Полный разворот: извлекает строки через `extract_rows`, при наличии `path_starts` первый путь — источник строк, остальные мержатся в строку с префиксом; при одном `path_start` — спуск по цепочке. Разворачивает каждую запись с учётом `exclude_keys` и `exclude_keys_in_path`. Объединяет колонки по всем строкам, сортирует их: сначала по первому сегменту пути (ключу), внутри ключа для колонок из массивов объектов — по индексу (1), (2), (3)…; при непустом `include_only_keys` оставляет только указанные колонки. **`column_order`:** перечисленные элементы задают порядок колонок: если элемент совпадает с именем колонки — она ставится в указанную позицию; если нет — элемент трактуется как **префикс**: в этот блок подтягиваются все колонки, начинающиеся с `префикс + " - "` (например `emails` → `emails - address - (1)`, `emails - address - (2)` и т.д.), в порядке по ключам и (1),(2),(3). Остальные колонки идут после. Возвращает `(rows, columns)`.
+  
+  Дополнительно:
+  - **`key_fields`** — вычисляемые колонки (несколько fallback-источников + default).
+  - **`row_builder`** — декларативная сборка строк из разных узлов JSON с `join` по ключам (например `employeeId` ↔ `empId`), переносом полей корня (`carry_root_fields`) и алиасами ключей (`key_aliases`).
 
-- **`load_and_flatten(json_path, path_sep, path_start, path_starts, exclude_keys, exclude_keys_in_path, include_only_keys, column_order, logger)`**  
+- **`load_and_flatten(json_path, path_sep, path_start, path_starts, exclude_keys, exclude_keys_in_path, include_only_keys, column_order, key_fields, row_builder, logger)`**  
   Читает JSON из файла, вызывает `flatten_json_data` с переданными параметрами, логирует число строк и колонок. Возвращает `(rows, columns)`.
 
 ---
@@ -168,7 +173,9 @@
 | **path_start** | Глобальная цепочка ключей старта разбора; переопределяется в **`files[].path_start`**. |
 | **exclude_keys** | Глобальный список исключаемых ключей/путей; переопределяется в **`files[].exclude_keys`**. |
 | **include_only_keys** | Если не пусто — в выход только перечисленные колонки (глобально для всех файлов без переопределения в `files`). |
-| **files** | Массив настроек по файлам: **`file`**, **`sheet_name`**, **`enabled`**, **`sheet`**, **`output`**, **`path_start`**, **`path_starts`**, **`exclude_keys`**, **`exclude_keys_in_path`**, **`column_order`** — см. подраздел ниже. |
+| **key_fields** | Глобальные вычисляемые ключевые поля (fallback-цепочки источников и default). Можно переопределить в `files[]`. |
+| **row_builder** | Глобальные правила сборки строк с join по ключам между ветками JSON. Можно переопределить в `files[]`. |
+| **files** | Массив настроек по файлам: **`file`**, **`sheet_name`**, **`enabled`**, **`sheet`**, **`output`**, **`path_start`**, **`path_starts`**, **`exclude_keys`**, **`exclude_keys_in_path`**, **`column_order`**, **`key_fields`**, **`row_builder`** — см. подраздел ниже. |
 | **csv** | **`encoding`**, **`delimiter`**, **`lineterminator`** — см. таблицу CSV. |
 | **xlsx** | **`freeze_first_row`**, **`freeze_cell`**, **`freeze_pane_per_sheet`**, **`column_width_mode`**, **`auto_row_height`**, **`autofilter`**, **`sheets`** (устаревший глобальный список листов, если нет **`files[].sheet`**). |
 
@@ -210,6 +217,8 @@
 | **exclude_keys** | `["photoData","info"]` | Исключаемые ключи для этого файла (переопределяет глобальный exclude_keys). |
 | **exclude_keys_in_path** | `[{"path":"full","keys":["info"]}, {"path":"agileManagers","keys":["id"]}]` | Исключать указанные ключи только внутри заданного пути. Работает и во вложенных объектах, и **внутри массивов объектов**: `path` — имя поля-массива (например `agileManagers`, `emails`), `keys` — поля элементов массива или вложенного объекта. Так можно убрать `id` только в `agileManagers`, оставив `id` в `agileTree`. |
 | **column_order** | `["empName","emails","jobTitle"]` | Порядок колонок: перечисленные элементы задают позиции. Элемент может быть **именем колонки** (точное совпадение) или **префиксом** — тогда в этот блок подтягиваются все колонки, начинающиеся с `префикс + " - "` (например `emails` → все `emails - address - (1)`, `emails - address - (2)` и т.д. в порядке (1),(2),(3)). Остальные колонки — после, с сохранением порядка по ключам. |
+| **key_fields** | `[{"name":"ТАБ","sources":["employeeNumber","tn"],"default":"-"}]` | Вычисляемые ключевые колонки. Для каждого элемента берётся первое непустое значение по `sources` (последовательно). Если все пусты/отсутствуют — используется `default`. Поддерживаются несколько key_fields сразу. |
+| **row_builder** | см. подробный пример ниже | Правила сборки строки из нескольких веток JSON: `base_path`, `joins`, `carry_root_fields`, `key_aliases`. Нужен, когда данные одной строки разбросаны по разным массивам и должны матчиться по ID. |
 
 **Пример `files` с `enabled` и вложенным `sheet`:**
 
@@ -245,6 +254,92 @@
 **Массивы объектов:** если значение поля — массив объектов `[{key: value}, ...]`, он разворачивается в **отдельные колонки** с индексом в имени: `родитель - ключ - (1)`, `родитель - ключ - (2)` и т.д. В ячейке — одно значение (не через запятую). **Порядок колонок:** сначала по ключу (первый сегмент пути): все колонки `agileManagers`, затем `agileRoles`, затем `agileTree` и т.д.; внутри каждого такого ключа — сначала все поля с индексом (1), затем (2), (3). Это позволяет держать блоки по смыслу (например все три колонки первого agileManager, затем второго).
 
 **Исключение ключа только в определённом пути (`exclude_keys_in_path`):** правило `{"path": "agileManagers", "keys": ["id"]}` убирает поле `id` только внутри массива `agileManagers`; в других местах (например в `agileTree` или в корне) поле `id` остаётся. Удобно, чтобы убрать служебные UUID в одних блоках и оставить в других.
+
+---
+
+### Вычисляемые ключевые поля (`key_fields`)
+
+`key_fields` позволяет объявить одну или несколько «служебных» колонок, которые вычисляются одинаково для всех строк файла.
+
+Формат элемента:
+
+```json
+{"name":"<имя_новой_колонки>","sources":["поле1","поле2","..."],"default":"<значение_по_умолчанию>"}
+```
+
+Правила:
+
+1. Проверка `sources` идёт **строго по порядку**.
+2. Берётся первое непустое значение (не `null`, не `""`, не строка из пробелов).
+3. Если ни один источник не дал значение — ставится `default`.
+4. Для составного набора key_fields порядок в конфиге сохраняется.
+5. Если вычисляемого поля не было в исходном JSON и оно не указано в `column_order`, поле автоматически ставится в начало таблицы.
+
+Пример:
+
+```json
+"key_fields": [
+  {"name":"ТАБ","sources":["employeeNumber","tn"],"default":"-"},
+  {"name":"ФИО","sources":["fullName","empFamilyName"],"default":"(нет ФИО)"}
+]
+```
+
+---
+
+### Декларативная сборка строк (`row_builder`)
+
+`row_builder` нужен для сложных JSON, где одна итоговая строка собирается из нескольких веток и массивов, связанных общим ID.
+
+Ключи:
+
+- `base_path` — путь до базовых объектов строк (из них строится «скелет» строки).
+- `key_aliases` — алиасы ключей для join (например `employeeId` и `empId` считаются одинаковым идентификатором).
+- `carry_root_fields` — какие поля из корневой записи дублировать в каждую строку.
+- `joins` — список присоединений:
+  - `path` — путь до кандидатов для join;
+  - `match` — список условий `left/right`;
+  - `prefix` — префикс колонок joined-объекта;
+  - `mode`:
+    - `first_match` — взять первый совпавший объект;
+    - `all` — сохранить все совпавшие объекты списком.
+
+Пример (ваш кейс `addressbook_empInfoFull_...`):
+
+```json
+"row_builder": {
+  "base_path": ["cards","*","empInfoFull","data"],
+  "key_aliases": {"employeeId":["empId"],"empId":["employeeId"]},
+  "carry_root_fields": [
+    {"path":"input","as":"input"},
+    {"path":"searchText","as":"searchText"},
+    {"path":"error","as":"error"},
+    {"path":"searchStats.totalPages","as":"searchTotalPages"},
+    {"path":"searchStats.totalHits","as":"searchTotalHits"},
+    {"path":"searchStats.uniqueEmployeeIds","as":"searchUniqueEmployeeIds"},
+    {"path":"searchStats.stopReason","as":"searchStopReason"}
+  ],
+  "joins": [
+    {
+      "path": ["search","data","hits","*"],
+      "match": [{"left":"empId","right":"employeeId"}],
+      "prefix": "searchHit",
+      "mode": "first_match"
+    },
+    {
+      "path": ["searchPages","*","data","hits","*"],
+      "match": [{"left":"empId","right":"employeeId"}],
+      "prefix": "searchPageHit",
+      "mode": "first_match"
+    }
+  ]
+}
+```
+
+Что это даёт:
+
+- базовая строка = один сотрудник из `cards[*].empInfoFull.data`;
+- `search`/`searchPages` подтягиваются по ID (а не по позиции в массиве);
+- `employeeId` и `empId` считаются эквивалентными ключами.
 
 ---
 
@@ -369,6 +464,12 @@ python src/Tests/test_flattener.py
 ---
 
 ## История версий
+
+- **0.5.0**
+  - Добавлена поддержка **`key_fields`**: вычисляемые ключевые колонки с последовательной цепочкой fallback-источников и `default`.
+  - Добавлена поддержка **`row_builder`**: декларативная сборка строки из нескольких веток JSON с `join` по ключам, `carry_root_fields`, алиасами ключей (`key_aliases`) и wildcard-путями.
+  - Для кейсов `employeeId`/`empId` реализован универсальный join без привязки к позиции элементов в массивах.
+  - Обновлены тесты `src/Tests/test_flattener.py`: проверки `key_fields` и `row_builder`.
 
 - **0.4.4**
   - Из **`config.json`** удалены блок **`__comments`** и справочный объект **`column_formats`** (description/options); описание всех параметров перенесено и структурировано в **README** (корневые ключи, таблицы CSV/XLSX).

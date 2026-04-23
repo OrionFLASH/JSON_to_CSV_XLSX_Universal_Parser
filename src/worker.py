@@ -44,6 +44,8 @@ def process_one_file(
     exclude_keys = file_opts.get("exclude_keys") or []
     exclude_keys_in_path = file_opts.get("exclude_keys_in_path") or []
     column_order = file_opts.get("column_order")
+    key_fields = file_opts.get("key_fields") or []
+    row_builder = file_opts.get("row_builder") or {}
 
     log.debug("Начало обработки файла %s (file_index=%s) [def: process_one_file]", json_path.name, file_index)
     rows, columns = json_flattener.load_and_flatten(
@@ -55,6 +57,8 @@ def process_one_file(
         exclude_keys_in_path=exclude_keys_in_path if exclude_keys_in_path else None,
         include_only_keys=include_only_keys if include_only_keys else None,
         column_order=column_order,
+        key_fields=key_fields if key_fields else None,
+        row_builder=row_builder if row_builder else None,
         logger=log,
     )
     log.debug("Файл %s: развёрнут, запись CSV=%s [def: process_one_file]", json_path.name, "csv" in output)

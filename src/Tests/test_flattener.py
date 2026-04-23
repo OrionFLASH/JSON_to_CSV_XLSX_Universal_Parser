@@ -258,6 +258,87 @@ def test_column_order_with_prefix() -> None:
     assert columns.index("name") < idx_addr_1
 
 
+def test_key_fields_with_fallbacks() -> None:
+    """key_fields: значение берётся по цепочке sources, при пустых — default."""
+    data = {
+        "results": [
+            {"employeeNumber": "100", "tn": "200", "name": "A"},
+            {"employeeNumber": "", "tn": "300", "name": "B"},
+            {"tn": "", "name": "C"},
+        ]
+    }
+    rows, columns = flatten_json_data(
+        data,
+        key_fields=[{"name": "ТАБ", "sources": ["employeeNumber", "tn"], "default": "-"}],
+    )
+    assert "ТАБ" in columns
+    assert rows[0]["ТАБ"] == "100"
+    assert rows[1]["ТАБ"] == "300"
+    assert rows[2]["ТАБ"] == "-"
+
+
+def test_key_fields_first_when_not_in_order_or_json() -> None:
+    """Если ключевое поле вычисляемое и не задано в column_order — ставим его в начало."""
+    data = {"results": [{"employeeNumber": "1", "name": "Ivan"}]}
+    rows, columns = flatten_json_data(
+        data,
+        column_order=["name"],
+        key_fields=[{"name": "ТАБ", "sources": ["employeeNumber"], "default": "-"}],
+    )
+    assert columns[0] == "ТАБ"
+    assert columns[1] == "name"
+    assert rows[0]["ТАБ"] == "1"
+
+
+def test_row_builder_join_by_employee_id_alias() -> None:
+    """row_builder: строка строится из cards, а search-hits джойнятся по employeeId/empId."""
+    data = [
+        {
+            "input": "Иванов Иван",
+            "searchText": "Иванов Иван",
+            "searchPages": [
+                {
+                    "data": {
+                        "hits": [
+                            {"employeeId": "e-1", "fullName": "Иванов Иван"},
+                            {"employeeId": "e-2", "fullName": "Петров Петр"},
+                        ]
+                    }
+                }
+            ],
+            "cards": [
+                {"employeeId": "e-1", "empInfoFull": {"data": {"empId": "e-1", "jobTitle": "Аналитик"}}},
+                {"employeeId": "e-2", "empInfoFull": {"data": {"empId": "e-2", "jobTitle": "Инженер"}}},
+            ],
+        }
+    ]
+    rows, columns = flatten_json_data(
+        data,
+        path_sep=" - ",
+        row_builder={
+            "base_path": ["cards", "*", "empInfoFull", "data"],
+            "key_aliases": {"employeeId": ["empId"], "empId": ["employeeId"]},
+            "carry_root_fields": ["input", "searchText"],
+            "joins": [
+                {
+                    "path": ["searchPages", "*", "data", "hits", "*"],
+                    "match": [{"left": "empId", "right": "employeeId"}],
+                    "prefix": "search_hit",
+                    "mode": "first_match",
+                }
+            ],
+        },
+    )
+    assert len(rows) == 2
+    assert "empId" in columns
+    assert "input" in columns
+    assert "search_hit - fullName" in columns
+    # Проверяем правильную привязку по employeeId
+    by_id = {r["empId"]: r for r in rows}
+    assert by_id["e-1"]["search_hit - fullName"] == "Иванов Иван"
+    assert by_id["e-2"]["search_hit - fullName"] == "Петров Петр"
+
+
 if __name__ == "__main__":
     test_extract_rows_list()
     test_extract_rows_results()
@@ -276,4 +357,7 @@ if __name__ == "__main__":
     test_array_columns_grouped_by_key()
     test_column_order()
     test_column_order_with_prefix()
+    test_key_fields_with_fallbacks()
+    test_key_fields_first_when_not_in_order_or_json()
+    test_row_builder_join_by_employee_id_alias()
     print("Все проверки пройдены.")

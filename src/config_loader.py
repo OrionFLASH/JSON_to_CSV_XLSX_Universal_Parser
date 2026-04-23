@@ -52,6 +52,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
             "path_start": [],
             "exclude_keys": [],
             "include_only_keys": [],
+            "key_fields": [],
+            "row_builder": {},
             "csv": DEFAULT_CSV.copy(),
             "xlsx": DEFAULT_XLSX.copy(),
         }
@@ -71,6 +73,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
             "path_start": [],
             "exclude_keys": [],
             "include_only_keys": [],
+            "key_fields": [],
+            "row_builder": {},
             "csv": DEFAULT_CSV.copy(),
             "xlsx": DEFAULT_XLSX.copy(),
         }
@@ -85,6 +89,8 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         "path_start": data.get("path_start", []),
         "exclude_keys": data.get("exclude_keys", []),
         "include_only_keys": data.get("include_only_keys", []),
+        "key_fields": data.get("key_fields", []),
+        "row_builder": data.get("row_builder", {}),
         "csv": {**DEFAULT_CSV, **data.get("csv", {})},
         "xlsx": {**DEFAULT_XLSX, **data.get("xlsx", {})},
     }
@@ -181,6 +187,8 @@ def get_file_options(
         "exclude_keys": config.get("exclude_keys") or [],
         "exclude_keys_in_path": [],
         "column_order": None,
+        "key_fields": config.get("key_fields") or [],
+        "row_builder": config.get("row_builder") or {},
     }
     if files and file_index < len(files):
         f = files[file_index]
@@ -200,6 +208,10 @@ def get_file_options(
                 opts["exclude_keys_in_path"] = f["exclude_keys_in_path"] if isinstance(f["exclude_keys_in_path"], list) else []
             if f.get("column_order") is not None:
                 opts["column_order"] = f["column_order"] if isinstance(f["column_order"], list) else None
+            if f.get("key_fields") is not None:
+                opts["key_fields"] = f["key_fields"] if isinstance(f["key_fields"], list) else []
+            if f.get("row_builder") is not None:
+                opts["row_builder"] = f["row_builder"] if isinstance(f["row_builder"], dict) else {}
     sheet_opts = get_sheet_options(config, file_index)
     opts["sheet_format"] = sheet_opts
     return opts

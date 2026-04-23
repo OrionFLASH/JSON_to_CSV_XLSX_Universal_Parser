@@ -1,1383 +1,468 @@
 {
   "input_dir": "IN",
   "output_dir": "OUT",
+  "output_file_base_name": "json_to_xlsx",
+  "output_timestamp_format": "%Y%m%d-%H%M%S",
+  "csv": {"encoding":"utf-8-sig","delimiter":";","lineterminator":"\n"},
+  "xlsx": {
+      "freeze_first_row": true,
+      "freeze_cell": "A2",
+      "freeze_pane_per_sheet": [],
+      "column_width_mode": "auto",
+      "auto_row_height": false,
+      "autofilter": true,
+      "sheets": []
+    },
   "path_separator": " - ",
   "path_start": [],
   "exclude_keys": [],
   "include_only_keys": [],
   "files": [
-    {
-      "file": "profiles_20260203-194146.json",
-      "sheet_name": "Профили",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "data",
-        "body"
-      ],
-      "exclude_keys": [
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source"
-      ],
-      "column_order": [
-        "employeeNumber",
-        "lastName",
-        "firstName",
-        "positionName",
-        "roleCode",
-        "tbCode",
-        "tbShortName",
-        "gosbCode",
-        "gosbName",
-        "gosbShortName"
-      ],
-      "enabled": true,
-      "sheet": {
-        "freeze_cell": "D2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "gosbCode": {
-            "number_format": "integer"
+      {
+            "file": "profiles_20260203-194146.json",
+            "sheet_name": "Профили",
+            "output": ["xlsx"],
+            "path_start": ["data","body"],
+            "exclude_keys": ["photoData","reactions","colorCode","isSuperUser","source"],
+            "column_order": [
+                    "employeeNumber", "lastName", "firstName", "positionName", "roleCode", "tbCode", "tbShortName", "gosbCode",
+                    "gosbName", "gosbShortName"
+                  ],
+            "enabled": true,
+            "sheet": {
+                    "freeze_cell": "E2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {
+                              "gosbCode": {"number_format":"integer"},
+                              "groupingCode": {"number_format":"integer"},
+                              "clusterCode": {"number_format":"integer"},
+                              "reactionCount": {"number_format":"integer"},
+                              "tbCode": {"number_format":"integer"}
+                            }
+                  },
+            "key_fields": [{"name":"ТАБ","sources":["employeeNumber","tn"],"default":"-"}]
           },
-          "groupingCode": {
-            "number_format": "integer"
+      {
+            "file": "empInfoFull_results_20260205-104000.json",
+            "sheet_name": "Адресбук",
+            "output": ["xlsx"],
+            "path_start": ["data"],
+            "exclude_keys": [
+                    "photoData", "reactions", "colorCode", "isSuperUser", "source", "badges", "carNumber", "comment", "empId",
+                    "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId", "isAgile", "isFos", "tabel", "profileLink",
+                    "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager", "addressIsFromAsun", "agileRoles2", "hasSec",
+                    "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop", "outText", "responsibility", "secretaries",
+                    "secretaryChiefs", "allMobilesHidden", "innerPhoneState", "dirId", "fos", "remoteDays", "remoteEnd",
+                    "remoteStart", "remoteType", "agileManagers", "agileTree", "zamFIO", "empAddress", "empPlace", "agileRoles"
+                  ],
+            "exclude_keys_in_path": [
+                    {"path":"agileManagers","keys":["id"]},
+                    {"path":"emails","keys":["domain"]},
+                    {"path":"newPhoneNumber","keys":["activatedAt"]},
+                    {"path":"absences - info","keys":["startDate","endDate","typeId","daysRemains","isLong","isAbsent"]},
+                    {"path":"absences","keys":["customAbsences","commonAbsence","isLong"]},
+                    {"path":"fos","keys":["fosId","fosDirId","id"]},
+                    {"path":"fosDirData","keys":["fosDirId"]},
+                    {"path":"agileTree","keys":["id"]},
+                    {"path":"deptTree","keys":["id"]},
+                    {"path":"emails","keys":["id","type","isMain"]},
+                    {"path":"phones","keys":["id","main","hidden"]}
+                  ],
+            "column_order": ["tabNum","tn","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "F2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
           },
-          "clusterCode": {
-            "number_format": "integer"
+      {
+            "file": "addressbook_empInfoFull_ALPHA_1776927940710.json",
+            "sheet_name": "AB_Q1_VOTE",
+            "output": ["xlsx"],
+            "path_start": [],
+            "exclude_keys": [
+                    "photoData", "reactions", "colorCode", "isSuperUser", "source", "badges", "carNumber", "comment", "empId",
+                    "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId", "isAgile", "isFos", "tabel", "profileLink",
+                    "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager", "addressIsFromAsun", "agileRoles2", "hasSec",
+                    "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop", "outText", "responsibility", "secretaries",
+                    "secretaryChiefs", "allMobilesHidden", "innerPhoneState", "dirId", "fos", "remoteDays", "remoteEnd",
+                    "remoteStart", "remoteType", "agileManagers", "agileTree", "zamFIO", "empAddress", "empPlace", "agileRoles"
+                  ],
+            "exclude_keys_in_path": [
+                    {"path":"agileManagers","keys":["id"]},
+                    {"path":"emails","keys":["domain"]},
+                    {"path":"newPhoneNumber","keys":["activatedAt"]},
+                    {"path":"absences - info","keys":["startDate","endDate","typeId","daysRemains","isLong","isAbsent"]},
+                    {"path":"absences","keys":["customAbsences","commonAbsence","isLong"]},
+                    {"path":"fos","keys":["fosId","fosDirId","id"]},
+                    {"path":"fosDirData","keys":["fosDirId"]},
+                    {"path":"agileTree","keys":["id"]},
+                    {"path":"deptTree","keys":["id"]},
+                    {"path":"emails","keys":["id","type","isMain"]},
+                    {"path":"phones","keys":["id","main","hidden"]}
+                  ],
+            "column_order": ["tabNum","input","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
+            "enabled": true,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  },
+            "row_builder": {
+                    "base_path": ["cards","*","empInfoFull","data"],
+                    "key_aliases": {"employeeId":["empId"],"empId":["employeeId"]},
+                    "carry_root_fields": [
+                              {"path":"input","as":"input"},
+                              {"path":"searchText","as":"searchText"},
+                              {"path":"error","as":"error"},
+                              {"path":"searchStats.totalPages","as":"searchTotalPages"},
+                              {"path":"searchStats.totalHits","as":"searchTotalHits"},
+                              {"path":"searchStats.uniqueEmployeeIds","as":"searchUniqueEmployeeIds"},
+                              {"path":"searchStats.stopReason","as":"searchStopReason"}
+                            ],
+                    "joins": [
+                              {
+                                          "path": ["search","data","hits","*"],
+                                          "match": [{"left":"empId","right":"employeeId"}],
+                                          "prefix": "searchHit",
+                                          "mode": "first_match"
+                                        },
+                              {
+                                          "path": ["searchPages","*","data","hits","*"],
+                                          "match": [{"left":"empId","right":"employeeId"}],
+                                          "prefix": "searchPageHit",
+                                          "mode": "first_match"
+                                        }
+                            ]
+                  }
           },
-          "reactionCount": {
-            "number_format": "integer"
+      {
+            "file": "addressbook_empInfoFull_ALPHA_1776948090955.json",
+            "sheet_name": "addressboo",
+            "output": ["xlsx"],
+            "path_start": ["cards","empInfoFull","data"],
+            "exclude_keys": [
+                    "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId", "skills", "zamId", "isAgile",
+                    "isFos", "tabel", "profileLink", "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager",
+                    "addressIsFromAsun", "agileRoles2", "hasSec", "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop",
+                    "outText", "responsibility", "secretaries", "secretaryChiefs", "allMobilesHidden", "innerPhoneState",
+                    "dirId", "fos", "remoteDays", "remoteEnd", "remoteStart", "remoteType", "agileManagers", "agileTree",
+                    "zamFIO", "empAddress", "empPlace", "agileRoles"
+                  ],
+            "exclude_keys_in_path": [],
+            "column_order": ["tabNum","input","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
           },
-          "tbCode": {
-            "number_format": "integer"
+      {
+            "file": "addressbook_empInfoFull_ALPHA_1776948611170.json",
+            "sheet_name": "addressbo1",
+            "output": ["xlsx"],
+            "path_start": ["cards","empInfoFull","data"],
+            "exclude_keys": [
+                    "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId",
+                    "isAgile", "isFos", "tabel", "profileLink", "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager",
+                    "addressIsFromAsun", "agileRoles2", "hasSec", "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop",
+                    "responsibility", "secretaries", "secretaryChiefs", "innerPhoneState", "dirId", "fos", "remoteDays",
+                    "remoteEnd", "remoteStart", "remoteType", "agileManagers", "agileTree", "zamFIO", "empAddress", "empPlace",
+                    "agileRoles"
+                  ],
+            "exclude_keys_in_path": [],
+            "column_order": ["tabNum","input","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
+          },
+      {
+            "file": "addressbook_empInfoFull_ALPHA_1776948628252.json",
+            "sheet_name": "addressbo2",
+            "output": ["xlsx"],
+            "path_start": ["cards","empInfoFull","data"],
+            "exclude_keys": [],
+            "exclude_keys_in_path": [],
+            "column_order": ["input"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
+          },
+      {
+            "file": "addressbook_empInfoFull_only_ALPHA_1776948614278.json",
+            "sheet_name": "addressbo3",
+            "output": ["xlsx"],
+            "path_start": ["cards","empInfoFull","data"],
+            "exclude_keys": [
+                    "badges", "carNumber", "comment", "empId", "empRoom", "funcDirId", "addressId", "logins", "skills", "zamId",
+                    "isAgile", "isFos", "tabel", "profileLink", "tags", "insider", "isDZO", "isRemote", "isRK", "isBTManager",
+                    "addressIsFromAsun", "agileRoles2", "hasSec", "hasSub", "hideBirth", "hourBelt", "isFavorite", "isTop",
+                    "responsibility", "secretaries", "secretaryChiefs", "innerPhoneState", "dirId", "fos", "remoteDays",
+                    "remoteEnd", "remoteStart", "remoteType", "agileManagers", "agileTree", "zamFIO", "empAddress", "empPlace",
+                    "agileRoles"
+                  ],
+            "exclude_keys_in_path": [],
+            "column_order": ["tabNum","empFamilyName","empName","empPatronymic","jobTitle","empTBname","emails"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
+          },
+      {
+            "file": "addressbook_search_only_ALPHA_1776948612614.json",
+            "sheet_name": "addressbo4",
+            "output": ["xlsx"],
+            "path_start": ["cards","empInfoFull","data"],
+            "exclude_keys": ["comment","isAgile","isFos","tags","isFavorite","remoteType"],
+            "exclude_keys_in_path": [],
+            "column_order": ["input"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
+          },
+      {
+            "file": "addressbook_search_only_ALPHA_1776948629560.json",
+            "sheet_name": "addressbo5",
+            "output": ["xlsx"],
+            "path_start": ["cards","empInfoFull","data"],
+            "exclude_keys": [],
+            "exclude_keys_in_path": [],
+            "column_order": ["input"],
+            "enabled": false,
+            "sheet": {
+                    "freeze_cell": "B2",
+                    "columns": [],
+                    "default_column_format": {
+                              "number_format": "text",
+                              "width_min": 15,
+                              "width_max": 120,
+                              "wrap_text": true,
+                              "float_decimals": 2,
+                              "decimal_separator": ",",
+                              "thousands_separator": " ",
+                              "date_format": "DD.MM.YYYY",
+                              "header_horizontal_align": "center",
+                              "header_vertical_align": "center",
+                              "header_fg_color": "000000",
+                              "header_bg_color": "C6EFCE",
+                              "header_bold": true,
+                              "header_italic": false,
+                              "header_underline": false,
+                              "data_horizontal_align": "left",
+                              "data_vertical_align": "center",
+                              "data_fg_color": "000000",
+                              "data_bg_color": "",
+                              "data_bold": false,
+                              "data_italic": false,
+                              "data_underline": false
+                            },
+                    "column_format": {"birthday":{"number_format":"date","date_format":"YYYY-MM-DD"},"tn":{"width_min":5,"width_max":10}}
+                  }
           }
-        }
-      }
-    },
-    {
-      "file": "empInfoFull_results_20260205-104000.json",
-      "sheet_name": "Адресбук",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "data"
-      ],
-      "exclude_keys": [
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "badges",
-        "carNumber",
-        "comment",
-        "empId",
-        "empRoom",
-        "funcDirId",
-        "addressId",
-        "logins",
-        "skills",
-        "zamId",
-        "isAgile",
-        "isFos",
-        "tabel",
-        "profileLink",
-        "tags",
-        "insider",
-        "isDZO",
-        "isRemote",
-        "isRK",
-        "isBTManager",
-        "addressIsFromAsun",
-        "agileRoles2",
-        "hasSec",
-        "hasSub",
-        "hideBirth",
-        "hourBelt",
-        "isFavorite",
-        "isTop",
-        "outText",
-        "responsibility",
-        "secretaries",
-        "secretaryChiefs",
-        "allMobilesHidden",
-        "innerPhoneState",
-        "dirId",
-        "fos",
-        "remoteDays",
-        "remoteEnd",
-        "remoteStart",
-        "remoteType",
-        "agileManagers",
-        "agileTree",
-        "zamFIO",
-        "empAddress",
-        "empPlace",
-        "agileRoles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "agileManagers",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "domain"
-          ]
-        },
-        {
-          "path": "newPhoneNumber",
-          "keys": [
-            "activatedAt"
-          ]
-        },
-        {
-          "path": "absences - info",
-          "keys": [
-            "startDate",
-            "endDate",
-            "typeId",
-            "daysRemains",
-            "isLong",
-            "isAbsent"
-          ]
-        },
-        {
-          "path": "absences",
-          "keys": [
-            "customAbsences",
-            "commonAbsence",
-            "isLong"
-          ]
-        },
-        {
-          "path": "fos",
-          "keys": [
-            "fosId",
-            "fosDirId",
-            "id"
-          ]
-        },
-        {
-          "path": "fosDirData",
-          "keys": [
-            "fosDirId"
-          ]
-        },
-        {
-          "path": "agileTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "deptTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "id",
-            "type",
-            "isMain"
-          ]
-        },
-        {
-          "path": "phones",
-          "keys": [
-            "id",
-            "main",
-            "hidden"
-          ]
-        }
-      ],
-      "column_order": [
-        "tabNum",
-        "tn",
-        "empFamilyName",
-        "empName",
-        "empPatronymic",
-        "jobTitle",
-        "empTBname",
-        "emails"
-      ],
-      "enabled": true,
-      "sheet": {
-        "freeze_cell": "F2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "birthday": {
-            "number_format": "date",
-            "date_format": "YYYY-MM-DD"
-          },
-          "tn": {
-            "width_min": 5,
-            "width_max": 10
-          }
-        }
-      }
-    },
-    {
-      "file": "profiles_part1_20260319_102245.json",
-      "sheet_name": "Профили",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "processed",
-        "body"
-      ],
-      "exclude_keys": [
-        "requestBody",
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "processed - alerts",
-        "processed - body",
-        "processed - context",
-        "processed - messages",
-        "processed - success"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "processed - error",
-          "keys": [
-            "restId",
-            "rqUID",
-            "supportTitle",
-            "supportURL",
-            "timestamp",
-            "type"
-          ]
-        },
-        {
-          "path": "processed - report",
-          "keys": [
-            "date",
-            "size"
-          ]
-        }
-      ],
-      "column_order": [
-        "employeeNumber",
-        "tn",
-        "lastName",
-        "firstName",
-        "positionName",
-        "roleCode",
-        "tbCode",
-        "tbShortName",
-        "tbFullName",
-        "gosbCode",
-        "gosbName",
-        "gosbShortName",
-        "employeeStatus",
-        "funcDivisionName",
-        "kpkCode",
-        "kpkName",
-        "kpkEmployeeNumber",
-        "kpkNameCustom",
-        "postEtalonCode",
-        "stageEtalonCode"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "E2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "gosbCode": {
-            "number_format": "integer"
-          },
-          "groupingCode": {
-            "number_format": "integer"
-          },
-          "clusterCode": {
-            "number_format": "integer"
-          },
-          "reactionCount": {
-            "number_format": "integer"
-          },
-          "tbCode": {
-            "number_format": "integer"
-          }
-        }
-      }
-    },
-    {
-      "file": "profiles_part1_20260413_112525.json",
-      "sheet_name": "GAME_Q1",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "processed",
-        "body"
-      ],
-      "exclude_keys": [
-        "requestBody",
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "processed - alerts",
-        "processed - body",
-        "processed - context",
-        "processed - messages",
-        "processed - success"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "processed - error",
-          "keys": [
-            "restId",
-            "rqUID",
-            "supportTitle",
-            "supportURL",
-            "timestamp",
-            "type"
-          ]
-        },
-        {
-          "path": "processed - report",
-          "keys": [
-            "date",
-            "size"
-          ]
-        }
-      ],
-      "column_order": [
-        "employeeNumber",
-        "tn",
-        "lastName",
-        "firstName",
-        "positionName",
-        "roleCode",
-        "tbCode",
-        "tbShortName",
-        "tbFullName",
-        "gosbCode",
-        "gosbName",
-        "gosbShortName",
-        "employeeStatus",
-        "funcDivisionName",
-        "kpkCode",
-        "kpkName",
-        "kpkEmployeeNumber",
-        "kpkNameCustom",
-        "postEtalonCode",
-        "stageEtalonCode"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "E2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "gosbCode": {
-            "number_format": "integer"
-          },
-          "groupingCode": {
-            "number_format": "integer"
-          },
-          "clusterCode": {
-            "number_format": "integer"
-          },
-          "reactionCount": {
-            "number_format": "integer"
-          },
-          "tbCode": {
-            "number_format": "integer"
-          }
-        }
-      }
-    },
-    {
-      "file": "all_profiles_part1_20260409_175125.json",
-      "sheet_name": "GAME_ALL_09_04",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "processed",
-        "body"
-      ],
-      "exclude_keys": [
-        "requestBody",
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "processed - alerts",
-        "processed - body",
-        "processed - context",
-        "processed - messages",
-        "processed - success"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "processed - error",
-          "keys": [
-            "restId",
-            "rqUID",
-            "supportTitle",
-            "supportURL",
-            "timestamp",
-            "type"
-          ]
-        },
-        {
-          "path": "processed - report",
-          "keys": [
-            "date",
-            "size"
-          ]
-        }
-      ],
-      "column_order": [
-        "employeeNumber",
-        "tn",
-        "lastName",
-        "firstName",
-        "positionName",
-        "roleCode",
-        "tbCode",
-        "tbShortName",
-        "tbFullName",
-        "gosbCode",
-        "gosbName",
-        "gosbShortName",
-        "employeeStatus",
-        "funcDivisionName",
-        "kpkCode",
-        "kpkName",
-        "kpkEmployeeNumber",
-        "kpkNameCustom",
-        "postEtalonCode",
-        "stageEtalonCode"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "E2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "gosbCode": {
-            "number_format": "integer"
-          },
-          "groupingCode": {
-            "number_format": "integer"
-          },
-          "clusterCode": {
-            "number_format": "integer"
-          },
-          "reactionCount": {
-            "number_format": "integer"
-          },
-          "tbCode": {
-            "number_format": "integer"
-          }
-        }
-      }
-    },
-    {
-      "file": "empInfoFull_results_20260319_102245.json",
-      "sheet_name": "Адресбук",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "data"
-      ],
-      "exclude_keys": [
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "badges",
-        "carNumber",
-        "comment",
-        "empId",
-        "empRoom",
-        "funcDirId",
-        "addressId",
-        "logins",
-        "skills",
-        "zamId",
-        "isAgile",
-        "isFos",
-        "tabel",
-        "profileLink",
-        "tags",
-        "insider",
-        "isDZO",
-        "isRemote",
-        "isRK",
-        "isBTManager",
-        "addressIsFromAsun",
-        "agileRoles2",
-        "hasSec",
-        "hasSub",
-        "hideBirth",
-        "hourBelt",
-        "isFavorite",
-        "isTop",
-        "outText",
-        "responsibility",
-        "secretaries",
-        "secretaryChiefs",
-        "allMobilesHidden",
-        "innerPhoneState",
-        "dirId",
-        "fos",
-        "remoteDays",
-        "remoteEnd",
-        "remoteStart",
-        "remoteType",
-        "agileManagers",
-        "agileTree",
-        "zamFIO",
-        "empAddress",
-        "empPlace",
-        "agileRoles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "agileManagers",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "domain"
-          ]
-        },
-        {
-          "path": "newPhoneNumber",
-          "keys": [
-            "activatedAt"
-          ]
-        },
-        {
-          "path": "absences - info",
-          "keys": [
-            "startDate",
-            "endDate",
-            "typeId",
-            "daysRemains",
-            "isLong",
-            "isAbsent"
-          ]
-        },
-        {
-          "path": "absences",
-          "keys": [
-            "customAbsences",
-            "commonAbsence",
-            "isLong"
-          ]
-        },
-        {
-          "path": "fos",
-          "keys": [
-            "fosId",
-            "fosDirId",
-            "id"
-          ]
-        },
-        {
-          "path": "fosDirData",
-          "keys": [
-            "fosDirId"
-          ]
-        },
-        {
-          "path": "agileTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "deptTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "id",
-            "type",
-            "isMain"
-          ]
-        },
-        {
-          "path": "phones",
-          "keys": [
-            "id",
-            "main",
-            "hidden"
-          ]
-        }
-      ],
-      "column_order": [
-        "tabNum",
-        "tn",
-        "empFamilyName",
-        "empName",
-        "empPatronymic",
-        "jobTitle",
-        "empTBname",
-        "emails"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "F2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "birthday": {
-            "number_format": "date",
-            "date_format": "YYYY-MM-DD"
-          },
-          "tn": {
-            "width_min": 5,
-            "width_max": 10
-          }
-        }
-      }
-    },
-    {
-      "file": "addressbook_empInfoFull_ALPHA_1776071402695.json",
-      "sheet_name": "AB_Q1",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "empInfoFull",
-        "data"
-      ],
-      "exclude_keys": [
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "badges",
-        "carNumber",
-        "comment",
-        "empId",
-        "empRoom",
-        "funcDirId",
-        "addressId",
-        "logins",
-        "skills",
-        "zamId",
-        "isAgile",
-        "isFos",
-        "tabel",
-        "profileLink",
-        "tags",
-        "insider",
-        "isDZO",
-        "isRemote",
-        "isRK",
-        "isBTManager",
-        "addressIsFromAsun",
-        "agileRoles2",
-        "hasSec",
-        "hasSub",
-        "hideBirth",
-        "hourBelt",
-        "isFavorite",
-        "isTop",
-        "outText",
-        "responsibility",
-        "secretaries",
-        "secretaryChiefs",
-        "allMobilesHidden",
-        "innerPhoneState",
-        "dirId",
-        "fos",
-        "remoteDays",
-        "remoteEnd",
-        "remoteStart",
-        "remoteType",
-        "agileManagers",
-        "agileTree",
-        "zamFIO",
-        "empAddress",
-        "empPlace",
-        "agileRoles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "agileManagers",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "domain"
-          ]
-        },
-        {
-          "path": "newPhoneNumber",
-          "keys": [
-            "activatedAt"
-          ]
-        },
-        {
-          "path": "absences - info",
-          "keys": [
-            "startDate",
-            "endDate",
-            "typeId",
-            "daysRemains",
-            "isLong",
-            "isAbsent"
-          ]
-        },
-        {
-          "path": "absences",
-          "keys": [
-            "customAbsences",
-            "commonAbsence",
-            "isLong"
-          ]
-        },
-        {
-          "path": "fos",
-          "keys": [
-            "fosId",
-            "fosDirId",
-            "id"
-          ]
-        },
-        {
-          "path": "fosDirData",
-          "keys": [
-            "fosDirId"
-          ]
-        },
-        {
-          "path": "agileTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "deptTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "id",
-            "type",
-            "isMain"
-          ]
-        },
-        {
-          "path": "phones",
-          "keys": [
-            "id",
-            "main",
-            "hidden"
-          ]
-        }
-      ],
-      "column_order": [
-        "tabNum",
-        "tabNumNormalized",
-        "empFamilyName",
-        "empName",
-        "empPatronymic",
-        "jobTitle",
-        "empTBname",
-        "emails"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "F2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "birthday": {
-            "number_format": "date",
-            "date_format": "YYYY-MM-DD"
-          },
-          "tn": {
-            "width_min": 5,
-            "width_max": 10
-          }
-        }
-      }
-    },
-    {
-      "file": "all_empInfoFull_results_20260409_175125.json",
-      "sheet_name": "AB_ALL_09_04",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "data"
-      ],
-      "exclude_keys": [
-        "photoData",
-        "reactions",
-        "colorCode",
-        "isSuperUser",
-        "source",
-        "badges",
-        "carNumber",
-        "comment",
-        "empId",
-        "empRoom",
-        "funcDirId",
-        "addressId",
-        "logins",
-        "skills",
-        "zamId",
-        "isAgile",
-        "isFos",
-        "tabel",
-        "profileLink",
-        "tags",
-        "insider",
-        "isDZO",
-        "isRemote",
-        "isRK",
-        "isBTManager",
-        "addressIsFromAsun",
-        "agileRoles2",
-        "hasSec",
-        "hasSub",
-        "hideBirth",
-        "hourBelt",
-        "isFavorite",
-        "isTop",
-        "outText",
-        "responsibility",
-        "secretaries",
-        "secretaryChiefs",
-        "allMobilesHidden",
-        "innerPhoneState",
-        "dirId",
-        "fos",
-        "remoteDays",
-        "remoteEnd",
-        "remoteStart",
-        "remoteType",
-        "agileManagers",
-        "agileTree",
-        "zamFIO",
-        "empAddress",
-        "empPlace",
-        "agileRoles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "agileManagers",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "domain"
-          ]
-        },
-        {
-          "path": "newPhoneNumber",
-          "keys": [
-            "activatedAt"
-          ]
-        },
-        {
-          "path": "absences - info",
-          "keys": [
-            "startDate",
-            "endDate",
-            "typeId",
-            "daysRemains",
-            "isLong",
-            "isAbsent"
-          ]
-        },
-        {
-          "path": "absences",
-          "keys": [
-            "customAbsences",
-            "commonAbsence",
-            "isLong"
-          ]
-        },
-        {
-          "path": "fos",
-          "keys": [
-            "fosId",
-            "fosDirId",
-            "id"
-          ]
-        },
-        {
-          "path": "fosDirData",
-          "keys": [
-            "fosDirId"
-          ]
-        },
-        {
-          "path": "agileTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "deptTree",
-          "keys": [
-            "id"
-          ]
-        },
-        {
-          "path": "emails",
-          "keys": [
-            "id",
-            "type",
-            "isMain"
-          ]
-        },
-        {
-          "path": "phones",
-          "keys": [
-            "id",
-            "main",
-            "hidden"
-          ]
-        }
-      ],
-      "column_order": [
-        "tabNum",
-        "tn",
-        "empFamilyName",
-        "empName",
-        "empPatronymic",
-        "jobTitle",
-        "empTBname",
-        "emails"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "F2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 120,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {
-          "birthday": {
-            "number_format": "date",
-            "date_format": "YYYY-MM-DD"
-          },
-          "tn": {
-            "width_min": 5,
-            "width_max": 10
-          }
-        }
-      }
-    },
-    {
-      "file": "ALL PROM parameters_20260224T111511.json",
-      "sheet_name": "СУП",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "parameter"
-      ],
-      "exclude_keys": [
-        "roles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "bundles",
-          "keys": [
-            "path",
-            "nameHash",
-            "pathHash"
-          ]
-        }
-      ],
-      "column_order": [
-        "name",
-        "description",
-        "dataType"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "C2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 90,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {}
-      }
-    },
-    {
-      "file": "БЫЛО parameters_20260323T134908.json",
-      "sheet_name": "СУП_OLD_03_23",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "parameter"
-      ],
-      "exclude_keys": [
-        "roles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "bundles",
-          "keys": [
-            "path",
-            "nameHash",
-            "pathHash"
-          ]
-        }
-      ],
-      "column_order": [
-        "name",
-        "description",
-        "dataType"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "C2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 90,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {}
-      }
-    },
-    {
-      "file": "СТАЛО parameters_20260410T101744.json",
-      "sheet_name": "СУП_NEW_04_10",
-      "output": [
-        "xlsx"
-      ],
-      "path_start": [
-        "parameter"
-      ],
-      "exclude_keys": [
-        "roles"
-      ],
-      "exclude_keys_in_path": [
-        {
-          "path": "bundles",
-          "keys": [
-            "path",
-            "nameHash",
-            "pathHash"
-          ]
-        }
-      ],
-      "column_order": [
-        "name",
-        "description",
-        "dataType"
-      ],
-      "enabled": false,
-      "sheet": {
-        "freeze_cell": "C2",
-        "columns": [],
-        "default_column_format": {
-          "number_format": "text",
-          "width_min": 15,
-          "width_max": 90,
-          "wrap_text": true,
-          "float_decimals": 2,
-          "decimal_separator": ",",
-          "thousands_separator": " ",
-          "date_format": "DD.MM.YYYY",
-          "header_horizontal_align": "center",
-          "header_vertical_align": "center",
-          "header_fg_color": "000000",
-          "header_bg_color": "C6EFCE",
-          "header_bold": true,
-          "header_italic": false,
-          "header_underline": false,
-          "data_horizontal_align": "left",
-          "data_vertical_align": "center",
-          "data_fg_color": "000000",
-          "data_bg_color": "",
-          "data_bold": false,
-          "data_italic": false,
-          "data_underline": false
-        },
-        "column_format": {}
-      }
-    }
-  ],
-  "csv": {
-    "encoding": "utf-8-sig",
-    "delimiter": ";",
-    "lineterminator": "\n"
-  },
-  "xlsx": {
-    "freeze_first_row": true,
-    "freeze_cell": "A2",
-    "freeze_pane_per_sheet": [],
-    "column_width_mode": "auto",
-    "auto_row_height": false,
-    "autofilter": true,
-    "sheets": []
-  }
+    ]
 }
